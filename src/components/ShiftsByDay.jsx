@@ -1,47 +1,154 @@
-import React from 'react';
-import { Box, Table, Thead, Tbody, Tr, Th, Td, Text, Heading, Badge, HStack, IconButton, Flex } from '@chakra-ui/react';
+import {
+  Badge,
+  Box,
+  Flex,
+  Heading,
+  HStack,
+  IconButton,
+  Table,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+} from '@chakra-ui/react';
 import { Edit, Trash2 } from 'lucide-react';
-const ce = React.createElement;
-const ShiftsByDay = ({ shifts, onEdit, onDelete }) => {
-      const sorted = [...(shifts || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
-      if (!sorted.length) {
-              return ce(Box, {textAlign:'center',py:10,color:'gray.500'},
-                              ce(Text,{fontSize:'lg'},'No shifts logged yet.'),
-                              ce(Text,{fontSize:'sm'},'Click "Add Shift" to get started!')
-                            );
-      }
-      const rows = sorted.map(shift => {
-              const tph = shift.hours > 0 ? (shift.tips / shift.hours).toFixed(2) : '0.00';
-              return ce(Tr, {key:shift.id, _hover:{bg:'gray.50'}},
-                              ce(Td,{fontWeight:'medium'},shift.date),
-                              ce(Td,null,parseFloat(shift.hours||0).toFixed(1)),
-                              ce(Td,{color:'green.600'},'$'+parseFloat(shift.tips||0).toFixed(2)),
-                              ce(Td,{color:'blue.600'},'$'+parseFloat(shift.earnings||0).toFixed(2)),
-                              ce(Td,null,ce(Badge,{variant:'outline',colorScheme:'purple'},shift.floor||'--')),
-                              ce(Td,null,'$'+tph),
-                              ce(Td,{color:'gray.500',maxW:'150px',isTruncated:true},shift.notes||'--'),
-                              ce(Td,null,ce(HStack,null,
-                                                    ce(IconButton,{icon:ce(Edit,{size:14}),size:'xs',variant:'ghost',colorScheme:'blue','aria-label':'Edit',onClick:()=>onEdit(shift)}),
-                                                    ce(IconButton,{icon:ce(Trash2,{size:14}),size:'xs',variant:'ghost',colorScheme:'red','aria-label':'Delete',onClick:()=>onDelete(shift.id)})
-                                                  ))
-                            );
-      });
-      return ce(Box, {bg:'white',rounded:'lg',shadow:'sm',border:'1px',borderColor:'gray.200',overflow:'hidden'},
-                    ce(Flex,{px:4,py:3,borderBottom:'1px',borderColor:'gray.200',align:'center',justify:'space-between'},
-                             ce(Heading,{size:'sm'},'All Shifts'),
-                             ce(Badge,{colorScheme:'teal'},sorted.length+' shifts')
-                           ),
-                    ce(Box,{overflowX:'auto'},
-                             ce(Table,{size:'sm'},
-                                        ce(Thead,{bg:'gray.50'},
-                                                     ce(Tr,null,
-                                                                    ce(Th,null,'Date'),ce(Th,null,'Hours'),ce(Th,null,'Tips'),ce(Th,null,'Earnings'),
-                                                                    ce(Th,null,'Floor'),ce(Th,null,'Tips/Hr'),ce(Th,null,'Notes'),ce(Th,null,'Actions')
-                                                                  )
-                                                   ),
-                                        ce(Tbody,null,...rows)
-                                      )
-                           )
-                  );
-};
+
+function ShiftsByDay({
+  shifts,
+  settings,
+  onEdit,
+  onDelete,
+  title = 'All shifts',
+  badgeLabel,
+  emptyTitle = 'No shifts logged yet.',
+  emptySubtitle = 'Add a shift to get started.',
+}) {
+  const sortedShifts = [...(shifts || [])].sort((left, right) => {
+    return new Date(right.date) - new Date(left.date);
+  });
+
+  if (!sortedShifts.length) {
+    return (
+      <Box
+        textAlign="center"
+        py={12}
+        px={6}
+        bg="#182133"
+        borderRadius="2xl"
+        border="1px solid"
+        borderColor="whiteAlpha.100"
+      >
+        <Text fontSize="lg" fontWeight="semibold">
+          {emptyTitle}
+        </Text>
+        <Text mt={2} color="gray.400">
+          {emptySubtitle}
+        </Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      bg="#182133"
+      borderRadius="2xl"
+      border="1px solid"
+      borderColor="whiteAlpha.100"
+      overflow="hidden"
+    >
+      <Flex
+        px={5}
+        py={4}
+        borderBottom="1px solid"
+        borderColor="whiteAlpha.100"
+        align="center"
+        justify="space-between"
+        gap={3}
+      >
+        <Heading size="sm">{title}</Heading>
+        <Badge colorScheme="teal" borderRadius="full" px={3} py={1}>
+          {badgeLabel || `${sortedShifts.length} ${sortedShifts.length === 1 ? 'shift' : 'shifts'}`}
+        </Badge>
+      </Flex>
+
+      <Box overflowX="auto">
+        <Table size="sm">
+          <Thead bg="whiteAlpha.50">
+            <Tr>
+              <Th color="gray.400">Date</Th>
+              <Th color="gray.400">Shift</Th>
+              <Th color="gray.400">Hours</Th>
+              <Th color="gray.400">Sales</Th>
+              <Th color="gray.400">Gross Tips</Th>
+              <Th color="gray.400">Tip-Out</Th>
+              <Th color="gray.400">Net Tips</Th>
+              <Th color="gray.400">Base Pay</Th>
+              <Th color="gray.400">Floor</Th>
+              <Th color="gray.400">Notes</Th>
+              <Th color="gray.400">Actions</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {sortedShifts.map((shift) => {
+              const hours = Number(shift.hours) || 0;
+              const sales = Number(shift.sales) || 0;
+              const tips = Number(shift.tips) || 0;
+              const tipOut = sales * ((Number(settings?.tipOutRate) || 0) / 100);
+              const netTips = tips - tipOut;
+              const basePay = Number(shift.earnings) || 0;
+
+              return (
+                <Tr key={shift.id} _hover={{ bg: 'whiteAlpha.50' }}>
+                  <Td fontWeight="medium">{shift.date}</Td>
+                  <Td color="gray.300">
+                    {shift.startTime && shift.endTime
+                      ? `${shift.startTime} - ${shift.endTime}`
+                      : 'Manual entry'}
+                  </Td>
+                  <Td>{hours.toFixed(2)}</Td>
+                  <Td color="orange.200">${sales.toFixed(2)}</Td>
+                  <Td color="green.300">${tips.toFixed(2)}</Td>
+                  <Td color="red.300">${tipOut.toFixed(2)}</Td>
+                  <Td color="green.200">${netTips.toFixed(2)}</Td>
+                  <Td color="blue.300">
+                    {basePay > 0 ? `$${basePay.toFixed(2)}` : 'From hourly rate'}
+                  </Td>
+                  <Td>{shift.floor || 'Unspecified'}</Td>
+                  <Td maxW="220px">
+                    <Text color="gray.400" noOfLines={1}>
+                      {shift.notes || 'No notes'}
+                    </Text>
+                  </Td>
+                  <Td>
+                    <HStack spacing={1}>
+                      <IconButton
+                        icon={<Edit size={14} />}
+                        size="xs"
+                        variant="ghost"
+                        colorScheme="blue"
+                        aria-label="Edit shift"
+                        onClick={() => onEdit?.(shift)}
+                      />
+                      <IconButton
+                        icon={<Trash2 size={14} />}
+                        size="xs"
+                        variant="ghost"
+                        colorScheme="red"
+                        aria-label="Delete shift"
+                        onClick={() => onDelete?.(shift.id)}
+                      />
+                    </HStack>
+                  </Td>
+                </Tr>
+              );
+            })}
+          </Tbody>
+        </Table>
+      </Box>
+    </Box>
+  );
+}
+
 export default ShiftsByDay;

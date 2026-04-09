@@ -1,74 +1,147 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton,
-  Button, FormControl, FormLabel, NumberInput, NumberInputField, VStack, Text,
+  Button,
+  FormControl,
+  FormLabel,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  NumberInput,
+  NumberInputField,
+  Text,
+  VStack,
 } from '@chakra-ui/react';
-const ce = React.createElement;
 
-const SettingsDialog = ({ isOpen, onClose, onSave, settings }) => {
-  const [form, setForm] = useState({ hourlyRate: 15, tipGoal: 100, hoursGoal: 80 });
+function SettingsDialog({ isOpen, onClose, onSave, settings }) {
+  const [form, setForm] = useState({
+    hourlyRate: 15,
+    tipOutRate: 4.5,
+    tipGoal: 100,
+    hoursGoal: 80,
+  });
 
   useEffect(() => {
-    if (settings) setForm({
-      hourlyRate: settings.hourlyRate || 15,
-      tipGoal: settings.tipGoal || 100,
-      hoursGoal: settings.hoursGoal || 80,
-    });
+    if (settings) {
+      setForm({
+        hourlyRate: settings.hourlyRate || 15,
+        tipOutRate: settings.tipOutRate || 4.5,
+        tipGoal: settings.tipGoal || 100,
+        hoursGoal: settings.hoursGoal || 80,
+      });
+    }
   }, [settings, isOpen]);
 
-  const handleSave = () => {
+  function handleSave() {
     onSave(form);
     onClose();
-  };
+  }
 
-  return ce(Modal, { isOpen, onClose, size: 'sm' },
-    ce(ModalOverlay, null),
-    ce(ModalContent, null,
-      ce(ModalHeader, null, 'Settings'),
-      ce(ModalCloseButton, null),
-      ce(ModalBody, null,
-        ce(VStack, { spacing: 4 },
-          ce(FormControl, null,
-            ce(FormLabel, null, 'Hourly Rate ($)'),
-            ce(NumberInput, {
-              min: 0,
-              value: form.hourlyRate,
-              onChange: v => setForm(f => ({ ...f, hourlyRate: parseFloat(v) || 0 })),
-            },
-              ce(NumberInputField, null)
-            ),
-            ce(Text, { fontSize: 'xs', color: 'gray.500' }, 'Used to estimate base pay')
-          ),
-          ce(FormControl, null,
-            ce(FormLabel, null, 'Bi-Weekly Tip Goal ($)'),
-            ce(NumberInput, {
-              min: 0,
-              value: form.tipGoal,
-              onChange: v => setForm(f => ({ ...f, tipGoal: parseFloat(v) || 0 })),
-            },
-              ce(NumberInputField, null)
-            ),
-            ce(Text, { fontSize: 'xs', color: 'gray.500' }, 'Your target tips per pay period')
-          ),
-          ce(FormControl, null,
-            ce(FormLabel, null, 'Bi-Weekly Hours Goal'),
-            ce(NumberInput, {
-              min: 0,
-              value: form.hoursGoal,
-              onChange: v => setForm(f => ({ ...f, hoursGoal: parseFloat(v) || 0 })),
-            },
-              ce(NumberInputField, null)
-            ),
-            ce(Text, { fontSize: 'xs', color: 'gray.500' }, 'Your target hours per pay period')
-          )
-        )
-      ),
-      ce(ModalFooter, null,
-        ce(Button, { variant: 'ghost', mr: 3, onClick: onClose }, 'Cancel'),
-        ce(Button, { colorScheme: 'teal', onClick: handleSave }, 'Save Settings')
-      )
-    )
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="sm">
+      <ModalOverlay />
+      <ModalContent bg="#151f30">
+        <ModalHeader>Settings</ModalHeader>
+        <ModalCloseButton />
+
+        <ModalBody>
+          <VStack spacing={4}>
+            <FormControl>
+              <FormLabel>Hourly Rate ($)</FormLabel>
+              <NumberInput
+                min={0}
+                precision={2}
+                value={form.hourlyRate}
+                onChange={(value) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    hourlyRate: parseFloat(value) || 0,
+                  }))
+                }
+              >
+                <NumberInputField />
+              </NumberInput>
+              <Text fontSize="xs" color="gray.500">
+                Used to estimate base pay.
+              </Text>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Tip-Out Rate (%)</FormLabel>
+              <NumberInput
+                min={0}
+                precision={2}
+                value={form.tipOutRate}
+                onChange={(value) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    tipOutRate: parseFloat(value) || 0,
+                  }))
+                }
+              >
+                <NumberInputField />
+              </NumberInput>
+              <Text fontSize="xs" color="gray.500">
+                Tip-out is deducted from tips using this percentage of sales.
+              </Text>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Bi-Weekly Net Tip Goal ($)</FormLabel>
+              <NumberInput
+                min={0}
+                precision={2}
+                value={form.tipGoal}
+                onChange={(value) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    tipGoal: parseFloat(value) || 0,
+                  }))
+                }
+              >
+                <NumberInputField />
+              </NumberInput>
+              <Text fontSize="xs" color="gray.500">
+                Track your goal after tip-out is deducted.
+              </Text>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Bi-Weekly Hours Goal</FormLabel>
+              <NumberInput
+                min={0}
+                precision={2}
+                value={form.hoursGoal}
+                onChange={(value) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    hoursGoal: parseFloat(value) || 0,
+                  }))
+                }
+              >
+                <NumberInputField />
+              </NumberInput>
+              <Text fontSize="xs" color="gray.500">
+                Your target hours per pay period.
+              </Text>
+            </FormControl>
+          </VStack>
+        </ModalBody>
+
+        <ModalFooter>
+          <Button variant="ghost" mr={3} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button colorScheme="teal" onClick={handleSave}>
+            Save Settings
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
-};
+}
 
 export default SettingsDialog;

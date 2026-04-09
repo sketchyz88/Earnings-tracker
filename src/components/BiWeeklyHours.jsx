@@ -1,53 +1,244 @@
-import React from 'react';
-import { Box, Heading, Text, SimpleGrid, Flex, Progress } from '@chakra-ui/react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-const ce = React.createElement;
-function getPeriods(shifts) {
-    if(!shifts.length) return [];
-    const s=[...shifts].sort((a,b)=>new Date(a.date)-new Date(b.date));
-    const res=[]; let i=0;
-    while(i<s.length){
-          const st=new Date(s[i].date),en=new Date(st); en.setDate(en.getDate()+13);
-          const p=s.filter(x=>{const d=new Date(x.date);return d>=st&&d<=en;});
-          const h=p.reduce((a,x)=>a+(parseFloat(x.hours)||0),0);
-          const t=p.reduce((a,x)=>a+(parseFloat(x.tips)||0),0);
-          const e=p.reduce((a,x)=>a+(parseFloat(x.earnings)||0),0);
-          res.push({label:st.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' - '+en.toLocaleDateString('en-US',{month:'short',day:'numeric'}),hours:parseFloat(h.toFixed(1)),tips:parseFloat(t.toFixed(2)),earnings:parseFloat(e.toFixed(2)),shifts:p.length});
-          i+=p.length; if(!p.length)break;
-    }
-    return res;
+import {
+  Box,
+  Flex,
+  Heading,
+  Progress,
+  SimpleGrid,
+  Text,
+} from '@chakra-ui/react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+
+const PAY_PERIOD_LENGTH_DAYS = 14;
+const PAY_PERIOD_ANCHOR = new Date('2026-03-06T00:00:00');
+
+function startOfDay(date) {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
 }
-const BiWeeklyHours = ({shifts}) => {
-    const periods=getPeriods(shifts||[]); const goal=80;
-    if(!periods.length) return ce(Box,{textAlign:'center',py:10,color:'gray.500'},ce(Text,null,'No data yet. Add some shifts first!'));
-    const cur=periods[periods.length-1]; const pct=Math.min(100,(cur.hours/goal)*100);
-    const chart = periods.length>1 ? ce(Box,{bg:'white',rounded:'lg',shadow:'sm',border:'1px',borderColor:'gray.200',p:5},
-                                            ce(Heading,{size:'sm',mb:4},'Hours by Pay Period'),
-                                            ce(ResponsiveContainer,{width:'100%',height:200},
-                                                     ce(BarChart,{data:periods,margin:{top:5,right:20,left:0,bottom:5}},
-                                                                ce(CartesianGrid,{strokeDasharray:'3 3'}),
-                                                                ce(XAxis,{dataKey:'label',tick:{fontSize:11}}),
-                                                                ce(YAxis),
-                                                                ce(Tooltip,{formatter:(v)=>[v,'Hours']}),
-                                                                ce(Bar,{dataKey:'hours',fill:'#38B2AC',radius:[4,4,0,0]})
-                                                              )
-                                                   )
-                                          ) : null;
-    return ce(Box,null,
-                  ce(Box,{bg:'white',rounded:'lg',shadow:'sm',border:'1px',borderColor:'gray.200',p:5,mb:4},
-                           ce(Heading,{size:'sm',mb:3},'Current Pay Period'),
-                           ce(SimpleGrid,{columns:{base:2,md:4},spacing:4,mb:4},
-                                      ce(Box,null,ce(Text,{fontSize:'xs',color:'gray.500'},'Hours'),ce(Text,{fontSize:'xl',fontWeight:'bold',color:'teal.600'},cur.hours)),
-                                      ce(Box,null,ce(Text,{fontSize:'xs',color:'gray.500'},'Tips'),ce(Text,{fontSize:'xl',fontWeight:'bold',color:'green.600'},'$'+cur.tips)),
-                                      ce(Box,null,ce(Text,{fontSize:'xs',color:'gray.500'},'Earnings'),ce(Text,{fontSize:'xl',fontWeight:'bold',color:'blue.600'},'$'+cur.earnings)),
-                                      ce(Box,null,ce(Text,{fontSize:'xs',color:'gray.500'},'Shifts'),ce(Text,{fontSize:'xl',fontWeight:'bold'},cur.shifts))
-                                    ),
-                           ce(Box,null,
-                                      ce(Flex,{justify:'space-between',mb:1},ce(Text,{fontSize:'xs',color:'gray.500'},'Hours ('+cur.hours+'/'+goal+')'),ce(Text,{fontSize:'xs',fontWeight:'bold',color:pct>=100?'green.500':'teal.500'},pct.toFixed(0)+'%')),
-                                      ce(Progress,{value:pct,colorScheme:pct>=100?'green':'teal',rounded:'full',size:'sm'})
-                                    )
-                         ),
-                  chart
-                );
-};
+
+function getPeriodStart(date) {
+  const normalizedDate = startOfDay(date);
+  const anchorDate = startOfDay(PAY_PERIOD_ANCHOR);
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const dayDifference = Math.floor((normalizedDate - anchorDate) / millisecondsPerDay);
+  const periodOffset = Math.floor(dayDifference / PAY_PERIOD_LENGTH_DAYS);
+  const periodStart = new Date(anchorDate);
+  periodStart.setDate(anchorDate.getDate() + periodOffset * PAY_PERIOD_LENGTH_DAYS);
+  return periodStart;
+}
+
+function getPeriods(shifts, hourlyRate, tipOutRate) {
+  if (!shifts.length) {
+    return [];
+  }
+
+  const sortedShifts = [...shifts].sort((left, right) => {
+    return new Date(left.date) - new Date(right.date);
+  });
+  const groupedPeriods = new Map();
+
+  sortedShifts.forEach((shift) => {
+    const shiftDate = new Date(`${shift.date}T00:00:00`);
+    const periodStart = getPeriodStart(shiftDate);
+    const periodKey = periodStart.toISOString();
+
+    if (!groupedPeriods.has(periodKey)) {
+      groupedPeriods.set(periodKey, []);
+    }
+
+    groupedPeriods.get(periodKey).push(shift);
+  });
+
+  return Array.from(groupedPeriods.entries()).map(([periodKey, periodShifts]) => {
+    const periodStart = new Date(periodKey);
+    const periodEnd = new Date(periodStart);
+    periodEnd.setDate(periodEnd.getDate() + (PAY_PERIOD_LENGTH_DAYS - 1));
+
+    const hours = periodShifts.reduce((sum, shift) => sum + (Number(shift.hours) || 0), 0);
+    const sales = periodShifts.reduce((sum, shift) => sum + (Number(shift.sales) || 0), 0);
+    const tips = periodShifts.reduce((sum, shift) => sum + (Number(shift.tips) || 0), 0);
+    const tipOut = sales * (tipOutRate / 100);
+    const basePay = periodShifts.reduce((sum, shift) => {
+      const explicit = Number(shift.earnings);
+      if (Number.isFinite(explicit) && explicit > 0) {
+        return sum + explicit;
+      }
+      return sum + (Number(shift.hours) || 0) * hourlyRate;
+    }, 0);
+
+    return {
+      label: `${periodStart.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      })} - ${periodEnd.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      })}`,
+      hours: Number(hours.toFixed(1)),
+      sales: Number(sales.toFixed(2)),
+      tips: Number(tips.toFixed(2)),
+      tipOut: Number(tipOut.toFixed(2)),
+      netTips: Number((tips - tipOut).toFixed(2)),
+      basePay: Number(basePay.toFixed(2)),
+      totalTakeHome: Number((tips - tipOut + basePay).toFixed(2)),
+      shifts: periodShifts.length,
+    };
+  });
+}
+
+function Metric({ label, value, accent = 'white' }) {
+  return (
+    <Box>
+      <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="0.08em">
+        {label}
+      </Text>
+      <Text mt={1} fontSize="2xl" fontWeight="bold" color={accent}>
+        {value}
+      </Text>
+    </Box>
+  );
+}
+
+function BiWeeklyHours({ shifts, settings }) {
+  const periods = getPeriods(shifts || [], settings?.hourlyRate || 0, settings?.tipOutRate || 0);
+  const hoursGoal = settings?.hoursGoal || 80;
+  const tipGoal = settings?.tipGoal || 100;
+
+  if (!periods.length) {
+    return (
+      <Box
+        textAlign="center"
+        py={12}
+        px={6}
+        bg="#182133"
+        borderRadius="2xl"
+        border="1px solid"
+        borderColor="whiteAlpha.100"
+      >
+        <Text fontSize="lg" fontWeight="semibold">
+          No pay-period data yet
+        </Text>
+        <Text color="gray.400" mt={2}>
+          Add a few shifts and this view will track your hours, tip-out, and take-home by pay period.
+        </Text>
+      </Box>
+    );
+  }
+
+  const currentPeriod = periods[periods.length - 1];
+  const hoursProgress = Math.min(100, (currentPeriod.hours / hoursGoal) * 100);
+  const tipsProgress = Math.min(100, (currentPeriod.netTips / tipGoal) * 100);
+
+  return (
+    <Box display="grid" gap={4}>
+      <Box
+        bg="#182133"
+        borderRadius="2xl"
+        border="1px solid"
+        borderColor="whiteAlpha.100"
+        p={{ base: 5, md: 6 }}
+      >
+        <Flex justify="space-between" align={{ base: 'flex-start', md: 'center' }} gap={4} mb={5} direction={{ base: 'column', md: 'row' }}>
+          <Box>
+            <Heading size="md">Current pay period</Heading>
+            <Text mt={1} color="gray.400">
+              {currentPeriod.label}
+            </Text>
+          </Box>
+          <Text color="gray.400" fontSize="sm">
+            {currentPeriod.shifts} {currentPeriod.shifts === 1 ? 'shift' : 'shifts'} logged
+          </Text>
+        </Flex>
+
+        <Text mb={4} color="gray.400" fontSize="sm">
+          Tip-out is calculated at {settings?.tipOutRate || 0}% of total sales for each shift.
+        </Text>
+
+        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={5} mb={6}>
+          <Metric label="Hours" value={currentPeriod.hours.toFixed(1)} accent="#f6ad55" />
+          <Metric label="Gross tips" value={`$${currentPeriod.tips.toFixed(2)}`} accent="#68d391" />
+          <Metric label="Tip-out" value={`$${currentPeriod.tipOut.toFixed(2)}`} accent="#fc8181" />
+          <Metric label="Net tips" value={`$${currentPeriod.netTips.toFixed(2)}`} accent="#9ae6b4" />
+        </SimpleGrid>
+
+        <SimpleGrid columns={{ base: 2, md: 3 }} spacing={5} mb={6}>
+          <Metric label="Sales" value={`$${currentPeriod.sales.toFixed(2)}`} accent="#fbd38d" />
+          <Metric label="Base pay" value={`$${currentPeriod.basePay.toFixed(2)}`} accent="#7dd3fc" />
+          <Metric
+            label="Take-home"
+            value={`$${currentPeriod.totalTakeHome.toFixed(2)}`}
+            accent="#f687b3"
+          />
+        </SimpleGrid>
+
+        <Box display="grid" gap={4}>
+          <Box>
+            <Flex justify="space-between" mb={1}>
+              <Text fontSize="sm" color="gray.400">
+                Hours goal
+              </Text>
+              <Text fontSize="sm" fontWeight="semibold" color="orange.200">
+                {currentPeriod.hours.toFixed(1)} / {hoursGoal}
+              </Text>
+            </Flex>
+            <Progress value={hoursProgress} size="sm" rounded="full" colorScheme="orange" />
+          </Box>
+
+          <Box>
+            <Flex justify="space-between" mb={1}>
+              <Text fontSize="sm" color="gray.400">
+                Net tip goal after tip-out
+              </Text>
+              <Text fontSize="sm" fontWeight="semibold" color="green.200">
+                ${currentPeriod.netTips.toFixed(0)} / ${tipGoal}
+              </Text>
+            </Flex>
+            <Progress value={tipsProgress} size="sm" rounded="full" colorScheme="green" />
+          </Box>
+        </Box>
+      </Box>
+
+      {periods.length > 1 ? (
+        <Box
+          bg="#182133"
+          borderRadius="2xl"
+          border="1px solid"
+          borderColor="whiteAlpha.100"
+          p={{ base: 5, md: 6 }}
+        >
+          <Heading size="sm" mb={4}>
+            Tip-out and net tip trend
+          </Heading>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={periods} margin={{ top: 8, right: 16, left: -16, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#0f172a',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '14px',
+                }}
+              />
+              <Bar dataKey="hours" fill="#f6ad55" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="tipOut" fill="#fc8181" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="netTips" fill="#68d391" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Box>
+      ) : null}
+    </Box>
+  );
+}
+
 export default BiWeeklyHours;

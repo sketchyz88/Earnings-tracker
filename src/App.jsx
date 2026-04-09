@@ -7,6 +7,7 @@ import {
   Flex,
   HStack,
   IconButton,
+  Select,
   SimpleGrid,
   Text,
   extendTheme,
@@ -20,8 +21,10 @@ import SettingsDialog from './components/SettingsDialog';
 import ShiftsByDay from './components/ShiftsByDay';
 
 const STORAGE_KEYS = {
-  shifts: 'earnings_tracker_shifts',
-  settings: 'earnings_tracker_settings',
+  profiles: 'earnings_tracker_profiles_v1',
+  activeProfileId: 'earnings_tracker_active_profile_id',
+  legacyShifts: 'earnings_tracker_shifts',
+  legacySettings: 'earnings_tracker_settings',
 };
 
 const DEFAULT_SETTINGS = {
@@ -29,6 +32,11 @@ const DEFAULT_SETTINGS = {
   tipOutRate: 4.5,
   tipGoal: 100,
   hoursGoal: 80,
+};
+
+const DEFAULT_PROFILE = {
+  id: 'default-profile',
+  name: 'My Profile',
 };
 
 const theme = extendTheme({
@@ -48,7 +56,7 @@ const theme = extendTheme({
 
 function loadShifts() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.shifts);
+    const raw = localStorage.getItem(STORAGE_KEYS.legacyShifts);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -56,12 +64,12 @@ function loadShifts() {
 }
 
 function saveShifts(nextShifts) {
-  localStorage.setItem(STORAGE_KEYS.shifts, JSON.stringify(nextShifts));
+  localStorage.setItem(STORAGE_KEYS.legacyShifts, JSON.stringify(nextShifts));
 }
 
 function loadSettings() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.settings);
+    const raw = localStorage.getItem(STORAGE_KEYS.legacySettings);
     return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
   } catch {
     return DEFAULT_SETTINGS;
@@ -69,7 +77,58 @@ function loadSettings() {
 }
 
 function saveSettings(nextSettings) {
-  localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(nextSettings));
+  localStorage.setItem(STORAGE_KEYS.legacySettings, JSON.stringify(nextSettings));
+}
+
+function createEmptyProfileData() {
+  return {
+    shifts: [],
+    settings: DEFAULT_SETTINGS,
+  };
+}
+
+function loadProfileStore() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.profiles);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.profiles?.length && parsed?.dataById) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Fall back to migrating legacy storage.
+  }
+
+  return {
+    profiles: [DEFAULT_PROFILE],
+    dataById: {
+      [DEFAULT_PROFILE.id]: {
+        shifts: loadShifts(),
+        settings: loadSettings(),
+      },
+    },
+  };
+}
+
+function saveProfileStore(nextStore) {
+  localStorage.setItem(STORAGE_KEYS.profiles, JSON.stringify(nextStore));
+}
+
+function loadActiveProfileId(fallbackProfileId) {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.activeProfileId) || fallbackProfileId;
+  } catch {
+    return fallbackProfileId;
+  }
+}
+
+function saveActiveProfileId(profileId) {
+  localStorage.setItem(STORAGE_KEYS.activeProfileId, profileId);
+}
+
+function slugifyProfileName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 function getBasePay(shift, hourlyRate) {
@@ -205,8 +264,10 @@ function StatCard({ icon: Icon, label, value, helper, accent }) {
 }
 
 function App() {
-  const [shifts, setShifts] = useState(loadShifts);
-  const [settings, setSettings] = useState(loadSettings);
+  const [profileStore, setProfileStore] = useState(loadProfileStore);
+  const [activeProfileId, setActiveProfileId] = useState(() =>
+    loadActiveProfileId(loadProfileStore().profiles[0]?.id || DEFAULT_PROFILE.id)
+  );
   const [view, setView] = useState('dashboard');
   const [selectedDate, setSelectedDate] = useState('');
   const [editingShift, setEditingShift] = useState(null);
@@ -214,8 +275,36 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
-    saveShifts(shifts);
-  }, [shifts]);
+    saveProfileStore(profileStore);
+  }, [profileStore]);
+
+  useEffect(() => {
+    saveActiveProfileId(activeProfileId);
+  }, [activeProfileId]);
+
+  const profiles = profileStore.profiles;
+  const activeProfile =
+    profiles.find((profile) => profile.id === activeProfileId) || profiles[0] || DEFAULT_PROFILE;
+  const activeProfileData =
+    profileStore.dataById[activeProfile.id] || createEmptyProfileData();
+  const shifts = activeProfileData.shifts || [];
+  const settings = { ...DEFAULT_SETTINGS, ...(activeProfileData.settings || {}) };
+
+  function updateActiveProfileData(updater) {
+    setProfileStore((currentStore) => {
+      const currentProfileData =
+        currentStore.dataById[activeProfile.id] || createEmptyProfileData();
+      const nextProfileData = updater(currentProfileData);
+
+      return {
+        ...currentStore,
+        dataById: {
+          ...currentStore.dataById,
+          [activeProfile.id]: nextProfileData,
+        },
+      };
+    });
+  }
 
   const stats = useMemo(() => computeStats(shifts, settings), [settings, shifts]);
 
@@ -248,14 +337,18 @@ function App() {
   }
 
   function handleSaveShift(shiftInput) {
-    setShifts((currentShifts) => {
-      if (editingShift) {
-        return currentShifts.map((shift) =>
-          shift.id === editingShift.id ? { ...shiftInput, id: editingShift.id } : shift
-        );
-      }
+    updateActiveProfileData((currentProfileData) => {
+      const currentShifts = currentProfileData.shifts || [];
+      const nextShifts = editingShift
+        ? currentShifts.map((shift) =>
+            shift.id === editingShift.id ? { ...shiftInput, id: editingShift.id } : shift
+          )
+        : [{ ...shiftInput, id: crypto.randomUUID() }, ...currentShifts];
 
-      return [{ ...shiftInput, id: crypto.randomUUID() }, ...currentShifts];
+      return {
+        ...currentProfileData,
+        shifts: nextShifts,
+      };
     });
 
     closeShiftDialog();
@@ -267,12 +360,42 @@ function App() {
   }
 
   function handleDeleteShift(id) {
-    setShifts((currentShifts) => currentShifts.filter((shift) => shift.id !== id));
+    updateActiveProfileData((currentProfileData) => ({
+      ...currentProfileData,
+      shifts: (currentProfileData.shifts || []).filter((shift) => shift.id !== id),
+    }));
   }
 
   function handleSaveSettings(nextSettings) {
-    setSettings(nextSettings);
-    saveSettings(nextSettings);
+    updateActiveProfileData((currentProfileData) => ({
+      ...currentProfileData,
+      settings: nextSettings,
+    }));
+  }
+
+  function handleCreateProfile() {
+    const profileName = window.prompt('New profile name');
+    const trimmedName = profileName?.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    const profileId = `${slugifyProfileName(trimmedName) || 'profile'}-${Date.now()}`;
+
+    setProfileStore((currentStore) => ({
+      profiles: [...currentStore.profiles, { id: profileId, name: trimmedName }],
+      dataById: {
+        ...currentStore.dataById,
+        [profileId]: createEmptyProfileData(),
+      },
+    }));
+
+    setActiveProfileId(profileId);
+    setSelectedDate('');
+    setEditingShift(null);
+    setIsAddOpen(false);
+    setIsSettingsOpen(false);
   }
 
   function handleExportCsv() {
@@ -307,7 +430,7 @@ function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'earnings-tracker-shifts.csv';
+    link.download = `${slugifyProfileName(activeProfile.name || 'profile') || 'profile'}-earnings-tracker-shifts.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -315,6 +438,15 @@ function App() {
   function handleCalendarDateClick(dateString) {
     setSelectedDate(dateString);
     setView('byDay');
+  }
+
+  function handleChangeProfile(nextProfileId) {
+    setActiveProfileId(nextProfileId);
+    setSelectedDate('');
+    setEditingShift(null);
+    setIsAddOpen(false);
+    setIsSettingsOpen(false);
+    setView('dashboard');
   }
 
   const navItems = [
@@ -352,7 +484,23 @@ function App() {
               </Text>
             </Box>
 
-            <HStack spacing={2} alignSelf={{ base: 'stretch', md: 'center' }}>
+            <HStack spacing={2} alignSelf={{ base: 'stretch', md: 'center' }} flexWrap="wrap">
+              <Select
+                value={activeProfile.id}
+                onChange={(event) => handleChangeProfile(event.target.value)}
+                maxW={{ base: 'full', md: '220px' }}
+                bg="#182133"
+                borderColor="whiteAlpha.200"
+              >
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </option>
+                ))}
+              </Select>
+              <Button variant="outline" borderColor="whiteAlpha.200" color="gray.100" onClick={handleCreateProfile}>
+                New Profile
+              </Button>
               <IconButton
                 icon={<Settings size={16} />}
                 variant="outline"
@@ -418,7 +566,7 @@ function App() {
                 icon={TrendingUp}
                 label="Net tips"
                 value={formatCurrency(stats.totalNetTips)}
-                helper={`${formatCurrency(stats.totalTipOut)} total tip-out removed`}
+                helper={`${activeProfile.name} • ${formatCurrency(stats.totalTipOut)} total tip-out removed`}
                 accent="#68d391"
               />
               <StatCard

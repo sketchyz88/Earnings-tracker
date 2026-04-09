@@ -159,19 +159,27 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
       }
 
       setScanSummary(parsed.summary);
-      setForm((currentForm) => ({
-        ...currentForm,
-        date: parsed.fields.date || currentForm.date,
-        endTime: parsed.fields.endTime || currentForm.endTime,
-        sales:
-          parsed.fields.sales != null ? String(parsed.fields.sales.toFixed(2)) : currentForm.sales,
-        tips:
-          parsed.fields.tips != null ? String(parsed.fields.tips.toFixed(2)) : currentForm.tips,
-        notes:
-          parsed.fields.notes && !currentForm.notes
-            ? parsed.fields.notes
-            : currentForm.notes,
-      }));
+      setForm((currentForm) => {
+        const nextStartTime = currentForm.startTime || '17:00';
+        const nextEndTime = parsed.fields.endTime || currentForm.endTime;
+        const nextHours = calculateHours(nextStartTime, nextEndTime);
+
+        return {
+          ...currentForm,
+          date: parsed.fields.date || currentForm.date,
+          startTime: nextStartTime,
+          endTime: nextEndTime,
+          hours: nextHours || currentForm.hours,
+          sales:
+            parsed.fields.sales != null ? String(parsed.fields.sales.toFixed(2)) : currentForm.sales,
+          tips:
+            parsed.fields.tips != null ? String(parsed.fields.tips.toFixed(2)) : currentForm.tips,
+          notes:
+            parsed.fields.notes && !currentForm.notes
+              ? parsed.fields.notes
+              : currentForm.notes,
+        };
+      });
     } catch (error) {
       setScanError(error.message || 'Unable to read this receipt.');
     } finally {

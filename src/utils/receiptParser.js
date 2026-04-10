@@ -13,6 +13,11 @@ function extractLabelValue(text, pattern) {
   return match?.[1]?.trim() || '';
 }
 
+function extractFirstTime(text) {
+  const match = text.match(/\b(\d{1,2}[:.]\d{2}\s*(?:a\s*m|p\s*m|am|pm)?)\b/i);
+  return match?.[1]?.trim() || '';
+}
+
 function buildNotes(extracted) {
   const notes = [];
 
@@ -85,10 +90,17 @@ export function parseReceiptText(text) {
     cleanedText,
     /date[\s\S]{0,20}?(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i
   );
-  const rawTime = extractLabelValue(
-    cleanedText,
-    /time[\s\S]{0,20}?(\d{1,2}[:.]\d{2}\s*(?:am|pm)?)/i
-  );
+  const topChunk = cleanedText.split('\n').slice(0, 12).join('\n');
+  const rawTime =
+    extractLabelValue(
+      cleanedText,
+      /time[\s\S]{0,20}?(\d{1,2}[:.]\d{2}\s*(?:a\s*m|p\s*m|am|pm)?)/i
+    ) ||
+    extractLabelValue(
+      cleanedText,
+      /\b(\d{1,2}[:.]\d{2}\s*(?:a\s*m|p\s*m|am|pm))\b/i
+    ) ||
+    extractFirstTime(topChunk);
 
   const extracted = {
     date: rawDate,

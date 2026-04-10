@@ -76,6 +76,7 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
   const [scanStatus, setScanStatus] = useState('');
   const [scanError, setScanError] = useState('');
   const [scanSummary, setScanSummary] = useState([]);
+  const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -216,10 +217,17 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
         <ModalBody>
           <VStack spacing={4}>
             <input
-              ref={fileInputRef}
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"
+              hidden
+              onChange={handleReceiptUpload}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
               hidden
               onChange={handleReceiptUpload}
             />
@@ -236,19 +244,29 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
                 <Box>
                   <Text fontWeight="semibold">Scan a shift receipt</Text>
                   <Text fontSize="sm" color="gray.400" mt={1}>
-                    Take a photo and I’ll try to pull in the date, time, sales, and credit tips for you.
+                    Take a new photo or upload one from your phone and I’ll try to pull in the date, time, sales, and credit tips for you.
                   </Text>
                 </Box>
-                <Button
-                  leftIcon={<Camera size={16} />}
-                  onClick={() => fileInputRef.current?.click()}
-                  isLoading={isScanning}
-                  loadingText="Scanning"
-                  colorScheme="purple"
-                  variant="outline"
-                >
-                  Scan Receipt
-                </Button>
+                <HStack spacing={2} flexWrap="wrap">
+                  <Button
+                    leftIcon={<Camera size={16} />}
+                    onClick={() => cameraInputRef.current?.click()}
+                    isLoading={isScanning}
+                    loadingText="Scanning"
+                    colorScheme="purple"
+                    variant="outline"
+                  >
+                    Take Photo
+                  </Button>
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    isDisabled={isScanning}
+                    variant="outline"
+                    borderColor="whiteAlpha.300"
+                  >
+                    Upload Photo
+                  </Button>
+                </HStack>
               </HStack>
 
               {isScanning ? (

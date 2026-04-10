@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
   Badge,
   Box,
   Button,
@@ -9,16 +12,28 @@ import {
   IconButton,
   Select,
   SimpleGrid,
+  Spinner,
   Text,
   extendTheme,
 } from '@chakra-ui/react';
-import { Download, Plus, Settings, Target, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import {
+  Download,
+  LogOut,
+  Plus,
+  Settings,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
 import AddShiftDialog from './components/AddShiftDialog';
+import AuthScreen from './components/AuthScreen';
 import BiWeeklyHours from './components/BiWeeklyHours';
 import CalendarView from './components/CalendarView';
 import FloorComparison from './components/FloorComparison';
 import SettingsDialog from './components/SettingsDialog';
 import ShiftsByDay from './components/ShiftsByDay';
+import { isSupabaseConfigured, supabase } from './lib/supabase';
 
 const STORAGE_KEYS = {
   profiles: 'earnings_tracker_profiles_v1',
@@ -63,10 +78,6 @@ function loadShifts() {
   }
 }
 
-function saveShifts(nextShifts) {
-  localStorage.setItem(STORAGE_KEYS.legacyShifts, JSON.stringify(nextShifts));
-}
-
 function loadSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.legacySettings);
@@ -74,10 +85,6 @@ function loadSettings() {
   } catch {
     return DEFAULT_SETTINGS;
   }
-}
-
-function saveSettings(nextSettings) {
-  localStorage.setItem(STORAGE_KEYS.legacySettings, JSON.stringify(nextSettings));
 }
 
 function createEmptyProfileData() {
@@ -129,6 +136,95 @@ function saveActiveProfileId(profileId) {
 
 function slugifyProfileName(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function sortShiftsNewestFirst(shifts) {
+  return [...shifts].sort((left, right) => new Date(right.date) - new Date(left.date));
+}
+
+function getLocalActiveDataset(profileStore, activeProfileId) {
+  const profiles = profileStore?.profiles || [DEFAULT_PROFILE];
+  const activeProfile =
+    profiles.find((profile) => profile.id === activeProfileId) || profiles[0] || DEFAULT_PROFILE;
+  const activeProfileData = profileStore?.dataById?.[activeProfile.id] || createEmptyProfileData();
+
+  return {
+    profileName: activeProfile.name || DEFAULT_PROFILE.name,
+    shifts: sortShiftsNewestFirst(activeProfileData.shifts || []),
+    settings: { ...DEFAULT_SETTINGS, ...(activeProfileData.settings || {}) },
+  };
+}
+
+function getDefaultProfileName(user, settingsRow) {
+  return (
+    settingsRow?.display_name ||
+    user?.user_metadata?.display_name ||
+    user?.email?.split('@')[0] ||
+    DEFAULT_PROFILE.name
+  );
+}
+
+function normalizeSettingsRow(settingsRow, user) {
+  return {
+    profileName: getDefaultProfileName(user, settingsRow),
+    settings: {
+      hourlyRate: Number(settingsRow?.hourly_rate) || DEFAULT_SETTINGS.hourlyRate,
+      tipOutRate: Number(settingsRow?.tip_out_rate) || DEFAULT_SETTINGS.tipOutRate,
+      tipGoal: Number(settingsRow?.tip_goal) || DEFAULT_SETTINGS.tipGoal,
+      hoursGoal: Number(settingsRow?.hours_goal) || DEFAULT_SETTINGS.hoursGoal,
+    },
+  };
+}
+
+function normalizeShiftRow(shiftRow) {
+  return {
+    id: shiftRow.id,
+    date: shiftRow.shift_date,
+    startTime: shiftRow.start_time || '',
+    endTime: shiftRow.end_time || '',
+    hours: Number(shiftRow.hours) || 0,
+    sales: Number(shiftRow.sales) || 0,
+    tips: Number(shiftRow.tips) || 0,
+    earnings: Number(shiftRow.earnings) || 0,
+    floor: shiftRow.floor || '',
+    notes: shiftRow.notes || '',
+  };
+}
+
+function serializeShift(shift, userId) {
+  return {
+    id: shift.id || crypto.randomUUID(),
+    user_id: userId,
+    shift_date: shift.date,
+    start_time: shift.startTime || null,
+    end_time: shift.endTime || null,
+    hours: Number(shift.hours) || 0,
+    sales: Number(shift.sales) || 0,
+    tips: Number(shift.tips) || 0,
+    earnings: Number(shift.earnings) || 0,
+    floor: shift.floor || null,
+    notes: shift.notes || '',
+  };
+}
+
+function serializeSettings(settings, userId, profileName) {
+  return {
+    user_id: userId,
+    display_name: profileName,
+    hourly_rate: Number(settings.hourlyRate) || DEFAULT_SETTINGS.hourlyRate,
+    tip_out_rate: Number(settings.tipOutRate) || DEFAULT_SETTINGS.tipOutRate,
+    tip_goal: Number(settings.tipGoal) || DEFAULT_SETTINGS.tipGoal,
+    hours_goal: Number(settings.hoursGoal) || DEFAULT_SETTINGS.hoursGoal,
+  };
+}
+
+function hasLocalDataToImport(dataset) {
+  const hasShifts = Boolean(dataset.shifts.length);
+  const hasCustomSettings = Object.entries(DEFAULT_SETTINGS).some(([key, defaultValue]) => {
+    return Number(dataset.settings[key]) !== Number(defaultValue);
+  });
+
+  return hasShifts || hasCustomSettings;
 }
 
 function getBasePay(shift, hourlyRate) {
@@ -263,11 +359,51 @@ function StatCard({ icon: Icon, label, value, helper, accent }) {
   );
 }
 
+async function fetchCloudData(user) {
+  const [{ data: settingsRow, error: settingsError }, { data: shiftRows, error: shiftsError }] =
+    await Promise.all([
+      supabase.from('settings').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase
+        .from('shifts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('shift_date', { ascending: false })
+        .order('created_at', { ascending: false }),
+    ]);
+
+  if (settingsError) {
+    throw settingsError;
+  }
+
+  if (shiftsError) {
+    throw shiftsError;
+  }
+
+  const normalizedSettings = normalizeSettingsRow(settingsRow, user);
+
+  return {
+    profileName: normalizedSettings.profileName,
+    shifts: (shiftRows || []).map(normalizeShiftRow),
+    settings: normalizedSettings.settings,
+  };
+}
+
 function App() {
-  const [profileStore, setProfileStore] = useState(loadProfileStore);
+  const initialLocalStore = loadProfileStore();
+  const [profileStore, setProfileStore] = useState(initialLocalStore);
   const [activeProfileId, setActiveProfileId] = useState(() =>
-    loadActiveProfileId(loadProfileStore().profiles[0]?.id || DEFAULT_PROFILE.id)
+    loadActiveProfileId(initialLocalStore.profiles[0]?.id || DEFAULT_PROFILE.id)
   );
+  const [session, setSession] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(!isSupabaseConfigured);
+  const [isCloudLoading, setIsCloudLoading] = useState(false);
+  const [cloudError, setCloudError] = useState('');
+  const [cloudProfileName, setCloudProfileName] = useState(DEFAULT_PROFILE.name);
+  const [cloudProfileData, setCloudProfileData] = useState(createEmptyProfileData());
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authMessage, setAuthMessage] = useState('');
+  const [isImportingLocalData, setIsImportingLocalData] = useState(false);
   const [view, setView] = useState('dashboard');
   const [selectedDate, setSelectedDate] = useState('');
   const [editingShift, setEditingShift] = useState(null);
@@ -282,29 +418,106 @@ function App() {
     saveActiveProfileId(activeProfileId);
   }, [activeProfileId]);
 
-  const profiles = profileStore.profiles;
-  const activeProfile =
-    profiles.find((profile) => profile.id === activeProfileId) || profiles[0] || DEFAULT_PROFILE;
-  const activeProfileData =
-    profileStore.dataById[activeProfile.id] || createEmptyProfileData();
-  const shifts = activeProfileData.shifts || [];
-  const settings = { ...DEFAULT_SETTINGS, ...(activeProfileData.settings || {}) };
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      return undefined;
+    }
 
-  function updateActiveProfileData(updater) {
-    setProfileStore((currentStore) => {
-      const currentProfileData =
-        currentStore.dataById[activeProfile.id] || createEmptyProfileData();
-      const nextProfileData = updater(currentProfileData);
+    let isMounted = true;
 
-      return {
-        ...currentStore,
-        dataById: {
-          ...currentStore.dataById,
-          [activeProfile.id]: nextProfileData,
-        },
-      };
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!isMounted) {
+          return;
+        }
+
+        if (error) {
+          setAuthError(error.message);
+        }
+
+        setSession(data.session || null);
+        setIsAuthReady(true);
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setAuthError(error.message || 'Unable to check your sign-in session.');
+        setIsAuthReady(true);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession || null);
+      setIsAuthReady(true);
     });
-  }
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !session?.user) {
+      setCloudProfileName(DEFAULT_PROFILE.name);
+      setCloudProfileData(createEmptyProfileData());
+      setCloudError('');
+      return;
+    }
+
+    let isMounted = true;
+
+    setIsCloudLoading(true);
+    setCloudError('');
+
+    fetchCloudData(session.user)
+      .then((result) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setCloudProfileName(result.profileName);
+        setCloudProfileData({
+          shifts: result.shifts,
+          settings: result.settings,
+        });
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setCloudError(error.message || 'Unable to load your synced account.');
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsCloudLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.user?.id]);
+
+  const localDataset = useMemo(
+    () => getLocalActiveDataset(profileStore, activeProfileId),
+    [profileStore, activeProfileId]
+  );
+
+  const isCloudMode = Boolean(isSupabaseConfigured && session?.user);
+  const profileName = isCloudMode ? cloudProfileName : localDataset.profileName;
+  const shifts = isCloudMode ? cloudProfileData.shifts || [] : localDataset.shifts;
+  const settings = isCloudMode
+    ? { ...DEFAULT_SETTINGS, ...(cloudProfileData.settings || {}) }
+    : localDataset.settings;
+
+  const canImportLocalData =
+    isCloudMode && !cloudProfileData.shifts.length && hasLocalDataToImport(localDataset);
 
   const stats = useMemo(() => computeStats(shifts, settings), [settings, shifts]);
 
@@ -316,14 +529,7 @@ function App() {
     return shifts.filter((shift) => shift.date === selectedDate);
   }, [selectedDate, shifts]);
 
-  const sortedShifts = useMemo(
-    () =>
-      [...shifts].sort((left, right) => {
-        return new Date(right.date) - new Date(left.date);
-      }),
-    [shifts]
-  );
-
+  const sortedShifts = useMemo(() => sortShiftsNewestFirst(shifts), [shifts]);
   const recentShift = sortedShifts[0];
 
   function closeShiftDialog() {
@@ -336,7 +542,69 @@ function App() {
     setIsAddOpen(true);
   }
 
-  function handleSaveShift(shiftInput) {
+  function updateActiveProfileData(updater) {
+    setProfileStore((currentStore) => {
+      const currentProfileData =
+        currentStore.dataById[activeProfileId] || createEmptyProfileData();
+      const nextProfileData = updater(currentProfileData);
+
+      return {
+        ...currentStore,
+        dataById: {
+          ...currentStore.dataById,
+          [activeProfileId]: nextProfileData,
+        },
+      };
+    });
+  }
+
+  async function handleSaveShift(shiftInput) {
+    if (isCloudMode) {
+      try {
+        setCloudError('');
+        const payload = serializeShift(
+          {
+            ...shiftInput,
+            id: editingShift?.id,
+          },
+          session.user.id
+        );
+
+        const query = editingShift
+          ? supabase
+              .from('shifts')
+              .update(payload)
+              .eq('id', editingShift.id)
+              .eq('user_id', session.user.id)
+          : supabase.from('shifts').insert(payload);
+
+        const { data, error } = await query.select().single();
+
+        if (error) {
+          throw error;
+        }
+
+        const savedShift = normalizeShiftRow(data);
+
+        setCloudProfileData((currentData) => {
+          const nextShifts = editingShift
+            ? currentData.shifts.map((shift) => (shift.id === editingShift.id ? savedShift : shift))
+            : [savedShift, ...currentData.shifts];
+
+          return {
+            ...currentData,
+            shifts: sortShiftsNewestFirst(nextShifts),
+          };
+        });
+
+        closeShiftDialog();
+      } catch (error) {
+        setCloudError(error.message || 'Unable to save this shift.');
+      }
+
+      return;
+    }
+
     updateActiveProfileData((currentProfileData) => {
       const currentShifts = currentProfileData.shifts || [];
       const nextShifts = editingShift
@@ -359,14 +627,67 @@ function App() {
     setIsAddOpen(true);
   }
 
-  function handleDeleteShift(id) {
+  async function handleDeleteShift(id) {
+    if (isCloudMode) {
+      try {
+        setCloudError('');
+
+        const { error } = await supabase
+          .from('shifts')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', session.user.id);
+
+        if (error) {
+          throw error;
+        }
+
+        setCloudProfileData((currentData) => ({
+          ...currentData,
+          shifts: currentData.shifts.filter((shift) => shift.id !== id),
+        }));
+      } catch (error) {
+        setCloudError(error.message || 'Unable to delete this shift.');
+      }
+
+      return;
+    }
+
     updateActiveProfileData((currentProfileData) => ({
       ...currentProfileData,
       shifts: (currentProfileData.shifts || []).filter((shift) => shift.id !== id),
     }));
   }
 
-  function handleSaveSettings(nextSettings) {
+  async function handleSaveSettings(nextSettings) {
+    if (isCloudMode) {
+      try {
+        setCloudError('');
+
+        const { data, error } = await supabase
+          .from('settings')
+          .upsert(serializeSettings(nextSettings, session.user.id, cloudProfileName))
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        const normalized = normalizeSettingsRow(data, session.user);
+
+        setCloudProfileName(normalized.profileName);
+        setCloudProfileData((currentData) => ({
+          ...currentData,
+          settings: normalized.settings,
+        }));
+        return;
+      } catch (error) {
+        setCloudError(error.message || 'Unable to save your synced settings.');
+        return;
+      }
+    }
+
     updateActiveProfileData((currentProfileData) => ({
       ...currentProfileData,
       settings: nextSettings,
@@ -374,8 +695,8 @@ function App() {
   }
 
   function handleCreateProfile() {
-    const profileName = window.prompt('New profile name');
-    const trimmedName = profileName?.trim();
+    const profileNameInput = window.prompt('New profile name');
+    const trimmedName = profileNameInput?.trim();
 
     if (!trimmedName) {
       return;
@@ -400,7 +721,20 @@ function App() {
 
   function handleExportCsv() {
     const rows = [
-      ['Date', 'Start Time', 'End Time', 'Hours', 'Sales', 'Gross Tips', 'Tip Out', 'Net Tips', 'Base Pay', 'Total Take Home', 'Floor', 'Notes'],
+      [
+        'Date',
+        'Start Time',
+        'End Time',
+        'Hours',
+        'Sales',
+        'Gross Tips',
+        'Tip Out',
+        'Net Tips',
+        'Base Pay',
+        'Total Take Home',
+        'Floor',
+        'Notes',
+      ],
       ...sortedShifts.map((shift) => {
         const tips = Number(shift.tips) || 0;
         const sales = getSales(shift);
@@ -430,7 +764,7 @@ function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${slugifyProfileName(activeProfile.name || 'profile') || 'profile'}-earnings-tracker-shifts.csv`;
+    link.download = `${slugifyProfileName(profileName || 'profile') || 'profile'}-earnings-tracker-shifts.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -449,6 +783,136 @@ function App() {
     setView('dashboard');
   }
 
+  async function handleSignIn({ email, password }) {
+    try {
+      setIsAuthSubmitting(true);
+      setAuthError('');
+      setAuthMessage('');
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      setAuthError(error.message || 'Unable to sign in.');
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  }
+
+  async function handleSignUp({ displayName, email, password }) {
+    try {
+      setIsAuthSubmitting(true);
+      setAuthError('');
+      setAuthMessage('');
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: displayName || email.split('@')[0],
+          },
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data.session) {
+        setAuthMessage('Check your email to confirm your account, then sign in.');
+        return;
+      }
+
+      setAuthMessage('Your account is ready and your data will sync on every device you use.');
+    } catch (error) {
+      setAuthError(error.message || 'Unable to create your account.');
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  }
+
+  async function handleSignOut() {
+    try {
+      setCloudError('');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      setCloudError(error.message || 'Unable to sign out right now.');
+    }
+  }
+
+  async function handleImportLocalData() {
+    if (!session?.user) {
+      return;
+    }
+
+    try {
+      setIsImportingLocalData(true);
+      setCloudError('');
+
+      const settingsPayload = serializeSettings(
+        localDataset.settings,
+        session.user.id,
+        localDataset.profileName
+      );
+
+      const shiftPayload = localDataset.shifts.map((shift) =>
+        serializeShift(
+          {
+            ...shift,
+            id: shift.id || crypto.randomUUID(),
+          },
+          session.user.id
+        )
+      );
+
+      const operations = [
+        supabase.from('settings').upsert(settingsPayload).select().single(),
+      ];
+
+      if (shiftPayload.length) {
+        operations.push(
+          supabase.from('shifts').upsert(shiftPayload, { onConflict: 'id' }).select()
+        );
+      }
+
+      const results = await Promise.all(operations);
+      const settingsResult = results[0];
+
+      if (settingsResult.error) {
+        throw settingsResult.error;
+      }
+
+      const shiftsResult = results[1];
+      if (shiftsResult?.error) {
+        throw shiftsResult.error;
+      }
+
+      const normalized = normalizeSettingsRow(settingsResult.data, session.user);
+      const importedShifts = shiftsResult?.data?.length
+        ? shiftsResult.data.map(normalizeShiftRow)
+        : localDataset.shifts;
+
+      setCloudProfileName(normalized.profileName);
+      setCloudProfileData({
+        settings: normalized.settings,
+        shifts: sortShiftsNewestFirst(importedShifts),
+      });
+    } catch (error) {
+      setCloudError(error.message || 'Unable to import your local device data.');
+    } finally {
+      setIsImportingLocalData(false);
+    }
+  }
+
   const navItems = [
     ['dashboard', 'Dashboard'],
     ['byDay', 'By Day'],
@@ -457,8 +921,27 @@ function App() {
     ['calendar', 'Calendar'],
   ];
 
-  return (
-    <ChakraProvider theme={theme}>
+  let content;
+
+  if (!isAuthReady) {
+    content = (
+      <Flex minH="100vh" align="center" justify="center" direction="column" gap={4}>
+        <Spinner size="xl" color="teal.300" thickness="4px" />
+        <Text color="gray.400">Checking your account session...</Text>
+      </Flex>
+    );
+  } else if (isSupabaseConfigured && !session?.user) {
+    content = (
+      <AuthScreen
+        isSubmitting={isAuthSubmitting}
+        authError={authError}
+        authMessage={authMessage}
+        onSignIn={handleSignIn}
+        onSignUp={handleSignUp}
+      />
+    );
+  } else {
+    content = (
       <Box minH="100vh" bg="#101726">
         <Box
           bg="#0d1422"
@@ -479,28 +962,58 @@ function App() {
               <Text fontSize="2xl" fontWeight="bold">
                 Earnings Tracker
               </Text>
-              <Text color="gray.400" fontSize="sm" mt={1}>
-                Track shifts, monitor pay periods, and compare where your strongest tips come from.
-              </Text>
+              <HStack spacing={3} mt={1} flexWrap="wrap">
+                <Text color="gray.400" fontSize="sm">
+                  Track shifts, monitor pay periods, and compare where your strongest tips come
+                  from.
+                </Text>
+                <Badge colorScheme={isCloudMode ? 'green' : 'orange'} borderRadius="full" px={2.5}>
+                  {isCloudMode ? 'Synced Account' : 'Local Device Mode'}
+                </Badge>
+              </HStack>
             </Box>
 
             <HStack spacing={2} alignSelf={{ base: 'stretch', md: 'center' }} flexWrap="wrap">
-              <Select
-                value={activeProfile.id}
-                onChange={(event) => handleChangeProfile(event.target.value)}
-                maxW={{ base: 'full', md: '220px' }}
-                bg="#182133"
-                borderColor="whiteAlpha.200"
-              >
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.name}
-                  </option>
-                ))}
-              </Select>
-              <Button variant="outline" borderColor="whiteAlpha.200" color="gray.100" onClick={handleCreateProfile}>
-                New Profile
-              </Button>
+              {isCloudMode ? (
+                <>
+                  <Badge colorScheme="blue" borderRadius="full" px={3} py={1}>
+                    {session.user.email}
+                  </Badge>
+                  <IconButton
+                    icon={<LogOut size={16} />}
+                    variant="outline"
+                    borderColor="whiteAlpha.200"
+                    color="gray.100"
+                    aria-label="Sign out"
+                    onClick={handleSignOut}
+                  />
+                </>
+              ) : (
+                <>
+                  <Select
+                    value={activeProfileId}
+                    onChange={(event) => handleChangeProfile(event.target.value)}
+                    maxW={{ base: 'full', md: '220px' }}
+                    bg="#182133"
+                    borderColor="whiteAlpha.200"
+                  >
+                    {(profileStore.profiles || []).map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button
+                    variant="outline"
+                    borderColor="whiteAlpha.200"
+                    color="gray.100"
+                    onClick={handleCreateProfile}
+                  >
+                    New Profile
+                  </Button>
+                </>
+              )}
+
               <IconButton
                 icon={<Settings size={16} />}
                 variant="outline"
@@ -518,11 +1031,7 @@ function App() {
               >
                 Export CSV
               </Button>
-              <Button
-                leftIcon={<Plus size={16} />}
-                colorScheme="teal"
-                onClick={openNewShiftDialog}
-              >
+              <Button leftIcon={<Plus size={16} />} colorScheme="teal" onClick={openNewShiftDialog}>
                 Add Shift
               </Button>
             </HStack>
@@ -561,12 +1070,84 @@ function App() {
 
         <Box px={{ base: 4, md: 6 }} py={{ base: 5, md: 6 }}>
           <Box maxW="1280px" mx="auto">
+            {!isSupabaseConfigured ? (
+              <Alert
+                status="info"
+                mb={4}
+                borderRadius="2xl"
+                bg="#132238"
+                border="1px solid rgba(255,255,255,0.08)"
+              >
+                <AlertIcon />
+                <AlertDescription>
+                  Password login and cross-device sync are now wired in the code. Add your
+                  Supabase URL and anon key in Vercel to turn cloud accounts on.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {isCloudLoading ? (
+              <Flex
+                mb={4}
+                p={5}
+                bg="#182133"
+                borderRadius="2xl"
+                border="1px solid"
+                borderColor="whiteAlpha.100"
+                align="center"
+                gap={3}
+              >
+                <Spinner size="sm" color="teal.300" />
+                <Text color="gray.300">Loading your synced shifts...</Text>
+              </Flex>
+            ) : null}
+
+            {cloudError ? (
+              <Alert status="error" mb={4} borderRadius="2xl" bg="red.900" color="red.100">
+                <AlertIcon />
+                <AlertDescription>{cloudError}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {canImportLocalData ? (
+              <Box
+                mb={4}
+                p={5}
+                bg="#182133"
+                borderRadius="2xl"
+                border="1px solid"
+                borderColor="whiteAlpha.100"
+              >
+                <Flex
+                  align={{ base: 'flex-start', md: 'center' }}
+                  justify="space-between"
+                  direction={{ base: 'column', md: 'row' }}
+                  gap={4}
+                >
+                  <Box>
+                    <Text fontWeight="semibold">Bring over the data from this device</Text>
+                    <Text mt={1} color="gray.400" fontSize="sm">
+                      I found local shifts and settings for {localDataset.profileName}. Import them
+                      once so this account starts with your existing history.
+                    </Text>
+                  </Box>
+                  <Button
+                    colorScheme="teal"
+                    onClick={handleImportLocalData}
+                    isLoading={isImportingLocalData}
+                  >
+                    Import My Local Data
+                  </Button>
+                </Flex>
+              </Box>
+            ) : null}
+
             <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={4} mb={6}>
               <StatCard
                 icon={TrendingUp}
                 label="Net tips"
                 value={formatCurrency(stats.totalNetTips)}
-                helper={`${activeProfile.name} • ${formatCurrency(stats.totalTipOut)} total tip-out removed`}
+                helper={`${profileName} • ${formatCurrency(stats.totalTipOut)} total tip-out removed`}
                 accent="#68d391"
               />
               <StatCard
@@ -677,8 +1258,10 @@ function App() {
           settings={settings}
         />
       </Box>
-    </ChakraProvider>
-  );
+    );
+  }
+
+  return <ChakraProvider theme={theme}>{content}</ChakraProvider>;
 }
 
 export default App;

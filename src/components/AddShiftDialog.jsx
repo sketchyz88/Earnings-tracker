@@ -4,6 +4,7 @@ import {
   AlertDescription,
   AlertIcon,
   AlertTitle,
+  Badge,
   Box,
   Button,
   FormControl,
@@ -69,13 +70,32 @@ function formatCurrency(value) {
   return `$${value.toFixed(2)}`;
 }
 
-function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
+function createShiftFromParsedReceipt(parsed, fallbackForm = createEmptyForm()) {
+  const startTime = fallbackForm.startTime || '17:00';
+  const endTime = parsed.fields.endTime || fallbackForm.endTime || '';
+  const hours = calculateHours(startTime, endTime) || fallbackForm.hours || '';
+
+  return {
+    date: parsed.fields.date || fallbackForm.date,
+    startTime,
+    endTime,
+    hours,
+    sales: parsed.fields.sales != null ? String(parsed.fields.sales.toFixed(2)) : fallbackForm.sales,
+    tips: parsed.fields.tips != null ? String(parsed.fields.tips.toFixed(2)) : fallbackForm.tips,
+    earnings: fallbackForm.earnings || '',
+    floor: fallbackForm.floor || '',
+    notes: parsed.fields.notes || fallbackForm.notes || '',
+  };
+}
+
+function AddShiftDialog({ isOpen, onClose, onSave, onSaveBatch, editingShift, settings }) {
   const [form, setForm] = useState(createEmptyForm);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanStatus, setScanStatus] = useState('');
   const [scanError, setScanError] = useState('');
   const [scanSummary, setScanSummary] = useState([]);
+  const [batchDrafts, setBatchDrafts] = useState([]);
   const [isDraggingReceipt, setIsDraggingReceipt] = useState(false);
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -103,6 +123,7 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
       setScanStatus('');
       setScanError('');
       setScanSummary([]);
+      setBatchDrafts([]);
       setIsDraggingReceipt(false);
     }
   }, [editingShift, isOpen]);
@@ -130,7 +151,9 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
     });
   }
 
-  async function processReceiptFile(file) {
+  async function processReceiptFile(file, options = {}) {
+    const { preserveCurrentForm = false } = options;
+
     if (!file) {
       return;
     }
@@ -159,38 +182,53 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
         throw new Error('The receipt was scanned, but I could not confidently find sales or tip amounts.');
       }
 
-      setScanSummary(parsed.summary);
-      setForm((currentForm) => {
-        const nextStartTime = currentForm.startTime || '17:00';
-        const nextEndTime = parsed.fields.endTime || currentForm.endTime;
-        const nextHours = calculateHours(nextStartTime, nextEndTime);
+      const draft = createShiftFromParsedReceipt(parsed, preserveCurrentForm ? createEmptyForm() : form);
 
-        return {
-          ...currentForm,
-          date: parsed.fields.date || currentForm.date,
-          startTime: nextStartTime,
-          endTime: nextEndTime,
-          hours: nextHours || currentForm.hours,
-          sales:
-            parsed.fields.sales != null ? String(parsed.fields.sales.toFixed(2)) : currentForm.sales,
-          tips:
-            parsed.fields.tips != null ? String(parsed.fields.tips.toFixed(2)) : currentForm.tips,
-          notes:
-            parsed.fields.notes && !currentForm.notes
-              ? parsed.fields.notes
-              : currentForm.notes,
-        };
-      });
+      setScanSummary(parsed.summary);
+      if (!preserveCurrentForm) {
+        setForm(draft);
+      }
+
+      return {
+        id: crypto.randomUUID(),
+        fileName: file.name,
+        summary: parsed.summary,
+        shift: draft,
+      };
     } catch (error) {
       setScanError(error.message || 'Unable to read this receipt.');
+      return null;
     } finally {
       setIsScanning(false);
     }
   }
 
   async function handleReceiptUpload(event) {
-    const [file] = event.target.files || [];
-    await processReceiptFile(file);
+    const files = Array.from(event.target.files || []);
+
+    if (!files.length) {
+      return;
+    }
+
+    if (files.length === 1) {
+      await processReceiptFile(files[0]);
+    } else {
+      const nextDrafts = [];
+      for (const file of files) {
+        const result = await processReceiptFile(file, { preserveCurrentForm: true });
+        if (result) {
+          nextDrafts.push(result);
+        }
+      }
+
+      if (nextDrafts.length) {
+        setBatchDrafts((currentDrafts) => [...currentDrafts, ...nextDrafts]);
+        setScanSummary([
+          { label: 'Batch Scan', value: `${nextDrafts.length} receipts ready to review` },
+        ]);
+      }
+    }
+
     event.target.value = '';
   }
 
@@ -210,8 +248,57 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
   async function handleReceiptDrop(event) {
     event.preventDefault();
     setIsDraggingReceipt(false);
-    const [file] = Array.from(event.dataTransfer.files || []);
-    await processReceiptFile(file);
+    const files = Array.from(event.dataTransfer.files || []);
+
+    if (!files.length) {
+      return;
+    }
+
+    if (files.length === 1) {
+      await processReceiptFile(files[0]);
+      return;
+    }
+
+    const nextDrafts = [];
+    for (const file of files) {
+      const result = await processReceiptFile(file, { preserveCurrentForm: true });
+      if (result) {
+        nextDrafts.push(result);
+      }
+    }
+
+    if (nextDrafts.length) {
+      setBatchDrafts((currentDrafts) => [...currentDrafts, ...nextDrafts]);
+      setScanSummary([
+        { label: 'Batch Scan', value: `${nextDrafts.length} receipts ready to review` },
+      ]);
+    }
+  }
+
+  function handleUseBatchDraft(draft) {
+    setForm(draft.shift);
+  }
+
+  function handleRemoveBatchDraft(draftId) {
+    setBatchDrafts((currentDrafts) => currentDrafts.filter((draft) => draft.id !== draftId));
+  }
+
+  function handleSaveBatchDrafts() {
+    if (!batchDrafts.length || !onSaveBatch) {
+      return;
+    }
+
+    onSaveBatch(
+      batchDrafts.map((draft) => ({
+        ...draft.shift,
+        hours: Number(draft.shift.hours) || 0,
+        sales: Number(draft.shift.sales) || 0,
+        tips: Number(draft.shift.tips) || 0,
+        earnings: Number(draft.shift.earnings) || 0,
+      }))
+    );
+
+    setBatchDrafts([]);
   }
 
   function handleSave() {
@@ -253,6 +340,7 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple
               hidden
               onChange={handleReceiptUpload}
             />
@@ -282,8 +370,8 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
                   </Text>
                   <Text fontSize="xs" color={isDraggingReceipt ? 'purple.100' : 'gray.500'} mt={2}>
                     {isDraggingReceipt
-                      ? 'Drop the receipt image to scan it now.'
-                      : 'Desktop tip: drag and drop a receipt photo right into this box.'}
+                      ? 'Drop one or more receipt images to scan them now.'
+                      : 'Desktop tip: drag and drop one or more receipt photos right into this box.'}
                   </Text>
                 </Box>
                 <HStack spacing={2} flexWrap="wrap">
@@ -303,7 +391,7 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
                     variant="outline"
                     borderColor="whiteAlpha.300"
                   >
-                    Upload Photo
+                    Upload Photo(s)
                   </Button>
                 </HStack>
               </HStack>
@@ -334,6 +422,67 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
                     </AlertDescription>
                   </Box>
                 </Alert>
+              ) : null}
+
+              {batchDrafts.length ? (
+                <Box mt={4} display="grid" gap={3}>
+                  <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }}>
+                    <Box>
+                      <Text fontWeight="semibold">Batch review</Text>
+                      <Text fontSize="sm" color="gray.400">
+                        Review the scanned receipts below, then add them all at once.
+                      </Text>
+                    </Box>
+                    <Button colorScheme="teal" onClick={handleSaveBatchDrafts}>
+                      Add All Scanned Shifts
+                    </Button>
+                  </HStack>
+
+                  {batchDrafts.map((draft) => (
+                    <Box
+                      key={draft.id}
+                      p={3}
+                      borderRadius="xl"
+                      bg="whiteAlpha.100"
+                      border="1px solid"
+                      borderColor="whiteAlpha.200"
+                    >
+                      <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={3}>
+                        <Box>
+                          <HStack spacing={2} flexWrap="wrap">
+                            <Text fontWeight="semibold">{draft.fileName || 'Scanned receipt'}</Text>
+                            <Badge colorScheme="purple">
+                              {draft.shift.date || 'Missing date'}
+                            </Badge>
+                            <Badge colorScheme="blue">
+                              Out {draft.shift.endTime || 'Missing time'}
+                            </Badge>
+                            <Badge colorScheme="orange">
+                              {draft.shift.hours || '0.00'} hrs
+                            </Badge>
+                          </HStack>
+                          <Text mt={2} fontSize="sm" color="gray.300">
+                            Sales {formatCurrency(Number(draft.shift.sales) || 0)} • Tips{' '}
+                            {formatCurrency(Number(draft.shift.tips) || 0)}
+                          </Text>
+                        </Box>
+                        <HStack spacing={2}>
+                          <Button size="sm" variant="outline" onClick={() => handleUseBatchDraft(draft)}>
+                            Load Into Form
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="red"
+                            onClick={() => handleRemoveBatchDraft(draft.id)}
+                          >
+                            Remove
+                          </Button>
+                        </HStack>
+                      </HStack>
+                    </Box>
+                  ))}
+                </Box>
               ) : null}
             </Box>
 

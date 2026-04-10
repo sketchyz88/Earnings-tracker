@@ -623,6 +623,61 @@ function App() {
     closeShiftDialog();
   }
 
+  async function handleSaveBatchShifts(shiftInputs) {
+    if (!shiftInputs.length) {
+      return;
+    }
+
+    if (isCloudMode) {
+      try {
+        setCloudError('');
+
+        const payload = shiftInputs.map((shiftInput) =>
+          serializeShift(
+            {
+              ...shiftInput,
+              id: crypto.randomUUID(),
+            },
+            session.user.id
+          )
+        );
+
+        const { data, error } = await supabase.from('shifts').insert(payload).select();
+
+        if (error) {
+          throw error;
+        }
+
+        setCloudProfileData((currentData) => ({
+          ...currentData,
+          shifts: sortShiftsNewestFirst([
+            ...(data || []).map(normalizeShiftRow),
+            ...currentData.shifts,
+          ]),
+        }));
+
+        closeShiftDialog();
+      } catch (error) {
+        setCloudError(error.message || 'Unable to save the scanned shifts.');
+      }
+
+      return;
+    }
+
+    updateActiveProfileData((currentProfileData) => ({
+      ...currentProfileData,
+      shifts: [
+        ...shiftInputs.map((shiftInput) => ({
+          ...shiftInput,
+          id: crypto.randomUUID(),
+        })),
+        ...(currentProfileData.shifts || []),
+      ],
+    }));
+
+    closeShiftDialog();
+  }
+
   function handleEditShift(shift) {
     setEditingShift(shift);
     setIsAddOpen(true);
@@ -1267,6 +1322,7 @@ function App() {
           isOpen={isAddOpen}
           onClose={closeShiftDialog}
           onSave={handleSaveShift}
+          onSaveBatch={handleSaveBatchShifts}
           editingShift={editingShift}
           settings={settings}
         />

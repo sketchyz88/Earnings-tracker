@@ -71,6 +71,17 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
           and desktop.
         </Text>
 
+        <Alert status="info" mt={5} borderRadius="xl" bg="#132238" color="blue.100">
+          <AlertIcon />
+          <Box>
+            <AlertTitle mb={1}>Privacy note</AlertTitle>
+            <AlertDescription>
+              Other coworkers cannot open your account without your password, and the app owner
+              cannot see your private shift data just by running the site.
+            </AlertDescription>
+          </Box>
+        </Alert>
+
         <Stack direction={{ base: 'column', sm: 'row' }} spacing={3} mt={6}>
           <Button
             onClick={() => setMode('signIn')}

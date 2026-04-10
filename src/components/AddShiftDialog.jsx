@@ -70,6 +70,24 @@ function formatCurrency(value) {
   return `$${value.toFixed(2)}`;
 }
 
+function shiftDateBackOneDay(dateString) {
+  if (!dateString) {
+    return '';
+  }
+
+  const date = new Date(`${dateString}T00:00:00`);
+  date.setDate(date.getDate() - 1);
+  return date.toISOString().split('T')[0];
+}
+
+function didShiftCrossMidnight(startTime, endTime) {
+  if (!startTime || !endTime) {
+    return false;
+  }
+
+  return endTime < startTime;
+}
+
 function getReceiptFingerprint(shift) {
   return [
     shift.date || 'missing-date',
@@ -84,6 +102,11 @@ function createShiftFromParsedReceipt(parsed, fallbackForm = createEmptyForm()) 
     fallbackForm.date && fallbackForm.date !== today() ? fallbackForm.date : '';
   const startTime = fallbackForm.startTime || '17:00';
   const endTime = parsed.fields.endTime || '';
+  const scannedDate = parsed.fields.date || fallbackDate;
+  const adjustedDate =
+    scannedDate && didShiftCrossMidnight(startTime, endTime)
+      ? shiftDateBackOneDay(scannedDate)
+      : scannedDate;
   const hours = endTime ? calculateHours(startTime, endTime) : '';
   const issues = [];
 
@@ -100,7 +123,7 @@ function createShiftFromParsedReceipt(parsed, fallbackForm = createEmptyForm()) 
   }
 
   return {
-    date: parsed.fields.date || fallbackDate,
+    date: adjustedDate,
     startTime,
     endTime,
     hours,

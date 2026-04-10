@@ -70,6 +70,66 @@ function formatCurrency(value) {
   return `$${value.toFixed(2)}`;
 }
 
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(
+        new Error(
+          'Your phone photo could not be opened in the browser. Try choosing a JPG or PNG image from Photos.'
+        )
+      );
+    };
+
+    image.src = objectUrl;
+  });
+}
+
+async function prepareReceiptImage(file) {
+  if (!file?.type?.startsWith('image/')) {
+    return file;
+  }
+
+  const image = await loadImageFromFile(file);
+  const maxDimension = 1800;
+  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return file;
+  }
+
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  const processedBlob = await new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.9);
+  });
+
+  if (!processedBlob) {
+    return file;
+  }
+
+  return new File([processedBlob], file.name.replace(/\.[^.]+$/, '') || 'receipt-scan', {
+    type: 'image/jpeg',
+    lastModified: Date.now(),
+  });
+}
+
 function shiftDateBackOneDay(dateString) {
   if (!dateString) {
     return '';
@@ -220,8 +280,10 @@ function AddShiftDialog({
     setScanError('');
 
     try {
+      setScanStatus('Preparing image');
+      const preparedFile = await prepareReceiptImage(file);
       const { default: Tesseract } = await import('tesseract.js');
-      const result = await Tesseract.recognize(file, 'eng', {
+      const result = await Tesseract.recognize(preparedFile, 'eng', {
         logger(message) {
           if (typeof message.progress === 'number') {
             setScanProgress(Math.round(message.progress * 100));
@@ -259,7 +321,10 @@ function AddShiftDialog({
 
       return shift;
     } catch (error) {
-      setScanError(error.message || 'Unable to read this receipt.');
+      setScanError(
+        error.message ||
+          'Unable to read this receipt. On a phone, try uploading a JPG or PNG image from your photo library.'
+      );
       return null;
     } finally {
       setIsScanning(false);

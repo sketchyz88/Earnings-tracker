@@ -2,6 +2,7 @@ import {
   Box,
   Flex,
   Heading,
+  HStack,
   Progress,
   SimpleGrid,
   Text,
@@ -25,7 +26,7 @@ function startOfDay(date) {
   return normalized;
 }
 
-function getPeriodStart(date) {
+export function getPeriodStart(date) {
   const normalizedDate = startOfDay(date);
   const anchorDate = startOfDay(PAY_PERIOD_ANCHOR);
   const millisecondsPerDay = 24 * 60 * 60 * 1000;
@@ -36,7 +37,7 @@ function getPeriodStart(date) {
   return periodStart;
 }
 
-function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOutRate) {
+export function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOutRate) {
   const periodEnd = new Date(periodStart);
   periodEnd.setDate(periodEnd.getDate() + (PAY_PERIOD_LENGTH_DAYS - 1));
 
@@ -72,7 +73,7 @@ function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOutRate) {
   };
 }
 
-function getPeriods(shifts, hourlyRate, tipOutRate) {
+export function getPeriods(shifts, hourlyRate, tipOutRate) {
   if (!shifts.length) {
     return [];
   }
@@ -112,7 +113,7 @@ function Metric({ label, value, accent = 'white' }) {
   );
 }
 
-function BiWeeklyHours({ shifts, settings }) {
+function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
   const periods = getPeriods(shifts || [], settings?.hourlyRate || 0, settings?.tipOutRate || 0);
   const hoursGoal = settings?.hoursGoal || 80;
   const tipGoal = settings?.tipGoal || 100;
@@ -243,6 +244,55 @@ function BiWeeklyHours({ shifts, settings }) {
               <Bar dataKey="netTips" fill="#68d391" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+
+          <Box mt={5} display="grid" gap={2}>
+            <Heading size="xs" color="gray.400" textTransform="uppercase" letterSpacing="0.08em">
+              Pay period history
+            </Heading>
+            {periods
+              .slice()
+              .reverse()
+              .map((period) => (
+                <Flex
+                  key={period.key}
+                  justify="space-between"
+                  align={{ base: 'flex-start', md: 'center' }}
+                  direction={{ base: 'column', md: 'row' }}
+                  gap={3}
+                  p={3}
+                  borderRadius="xl"
+                  bg={period.key === currentPeriod.key ? 'whiteAlpha.100' : 'transparent'}
+                  border="1px solid"
+                  borderColor="whiteAlpha.100"
+                  cursor={onSelectPeriod ? 'pointer' : 'default'}
+                  _hover={
+                    onSelectPeriod
+                      ? {
+                          borderColor: 'teal.300',
+                          bg: 'whiteAlpha.100',
+                        }
+                      : undefined
+                  }
+                  onClick={() => onSelectPeriod?.(period)}
+                >
+                  <Box>
+                    <Text fontWeight="semibold">{period.label}</Text>
+                    <Text color="gray.400" fontSize="sm">
+                      {period.shifts} {period.shifts === 1 ? 'shift' : 'shifts'} • Sales $
+                      {period.sales.toFixed(2)}
+                    </Text>
+                  </Box>
+                  <HStack spacing={4}>
+                    <Text color="green.200" fontSize="sm" fontWeight="semibold">
+                      Net ${period.netTips.toFixed(2)}
+                    </Text>
+                    <Text color="red.200" fontSize="sm">
+                      Tip-out ${period.tipOut.toFixed(2)}
+                    </Text>
+                  </HStack>
+                </Flex>
+              ))}
+          </Box>
         </Box>
       ) : null}
     </Box>

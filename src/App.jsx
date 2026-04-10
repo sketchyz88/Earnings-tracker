@@ -29,7 +29,7 @@ import {
 import AddShiftDialog from './components/AddShiftDialog';
 import AboutView from './components/AboutView';
 import AuthScreen from './components/AuthScreen';
-import BiWeeklyHours from './components/BiWeeklyHours';
+import BiWeeklyHours, { getPeriods } from './components/BiWeeklyHours';
 import CalendarView from './components/CalendarView';
 import FloorComparison from './components/FloorComparison';
 import SettingsDialog from './components/SettingsDialog';
@@ -329,6 +329,27 @@ function formatDateLabel(dateString) {
   });
 }
 
+function startOfWeek(dateString) {
+  const date = new Date(`${dateString}T00:00:00`);
+  const day = date.getDay();
+  const diff = (day + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatWeekLabel(startDate) {
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 6);
+  return `${startDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })} - ${endDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })}`;
+}
+
 function StatCard({ icon: Icon, label, value, helper, accent }) {
   return (
     <Box
@@ -407,6 +428,8 @@ function App() {
   const [isImportingLocalData, setIsImportingLocalData] = useState(false);
   const [view, setView] = useState('dashboard');
   const [selectedDate, setSelectedDate] = useState('');
+  const [historyFilterType, setHistoryFilterType] = useState('all');
+  const [historyFilterValue, setHistoryFilterValue] = useState('');
   const [editingShift, setEditingShift] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -522,16 +545,133 @@ function App() {
 
   const stats = useMemo(() => computeStats(shifts, settings), [settings, shifts]);
 
+  const monthOptions = useMemo(() => {
+    const seen = new Map();
+    shifts.forEach((shift) => {
+      if (!shift.date) {
+        return;
+      }
+      const key = shift.date.slice(0, 7);
+      if (!seen.has(key)) {
+        const date = new Date(`${key}-01T00:00:00`);
+        seen.set(
+          key,
+          `${date.toLocaleDateString('en-US', { month: 'long' })} ${date.getFullYear()}`
+        );
+      }
+    });
+    return Array.from(seen.entries())
+      .sort((left, right) => right[0].localeCompare(left[0]))
+      .map(([value, label]) => ({ value, label }));
+  }, [shifts]);
+
+  const weekOptions = useMemo(() => {
+    const seen = new Map();
+    shifts.forEach((shift) => {
+      if (!shift.date) {
+        return;
+      }
+      const weekStart = startOfWeek(shift.date);
+      const key = weekStart.toISOString();
+      if (!seen.has(key)) {
+        seen.set(key, formatWeekLabel(weekStart));
+      }
+    });
+    return Array.from(seen.entries())
+      .sort((left, right) => right[0].localeCompare(left[0]))
+      .map(([value, label]) => ({ value, label }));
+  }, [shifts]);
+
+  const payPeriodOptions = useMemo(
+    () =>
+      getPeriods(shifts || [], settings?.hourlyRate || 0, settings?.tipOutRate || 0)
+        .slice()
+        .reverse()
+        .map((period) => ({ value: period.key, label: period.label })),
+    [settings?.hourlyRate, settings?.tipOutRate, shifts]
+  );
+
   const filteredShifts = useMemo(() => {
     if (!selectedDate) {
+      if (historyFilterType === 'month' && historyFilterValue) {
+        return shifts.filter((shift) => shift.date?.startsWith(historyFilterValue));
+      }
+
+      if (historyFilterType === 'week' && historyFilterValue) {
+        return shifts.filter(
+          (shift) => startOfWeek(shift.date).toISOString() === historyFilterValue
+        );
+      }
+
+      if (historyFilterType === 'payPeriod' && historyFilterValue) {
+        const selectedPeriod = getPeriods(
+          shifts || [],
+          settings?.hourlyRate || 0,
+          settings?.tipOutRate || 0
+        ).find((period) => period.key === historyFilterValue);
+
+        if (!selectedPeriod) {
+          return [];
+        }
+
+        const periodStart = new Date(selectedPeriod.key);
+        const periodEnd = new Date(periodStart);
+        periodEnd.setDate(periodEnd.getDate() + 13);
+
+        return shifts.filter((shift) => {
+          const shiftDate = new Date(`${shift.date}T00:00:00`);
+          return shiftDate >= periodStart && shiftDate <= periodEnd;
+        });
+      }
+
       return shifts;
     }
 
     return shifts.filter((shift) => shift.date === selectedDate);
-  }, [selectedDate, shifts]);
+  }, [
+    historyFilterType,
+    historyFilterValue,
+    selectedDate,
+    settings?.hourlyRate,
+    settings?.tipOutRate,
+    shifts,
+  ]);
 
   const sortedShifts = useMemo(() => sortShiftsNewestFirst(shifts), [shifts]);
   const recentShift = sortedShifts[0];
+  const activeHistoryLabel = useMemo(() => {
+    if (selectedDate) {
+      return `Filtered to ${formatDateLabel(selectedDate)}`;
+    }
+
+    if (historyFilterType === 'month' && historyFilterValue) {
+      return `Filtered to ${
+        monthOptions.find((option) => option.value === historyFilterValue)?.label || historyFilterValue
+      }`;
+    }
+
+    if (historyFilterType === 'week' && historyFilterValue) {
+      return `Filtered to week ${
+        weekOptions.find((option) => option.value === historyFilterValue)?.label || historyFilterValue
+      }`;
+    }
+
+    if (historyFilterType === 'payPeriod' && historyFilterValue) {
+      return `Filtered to pay period ${
+        payPeriodOptions.find((option) => option.value === historyFilterValue)?.label ||
+        historyFilterValue
+      }`;
+    }
+
+    return '';
+  }, [
+    historyFilterType,
+    historyFilterValue,
+    monthOptions,
+    payPeriodOptions,
+    selectedDate,
+    weekOptions,
+  ]);
 
   function closeShiftDialog() {
     setEditingShift(null);
@@ -599,11 +739,13 @@ function App() {
         });
 
         closeShiftDialog();
+        return true;
       } catch (error) {
         setCloudError(error.message || 'Unable to save this shift.');
+        return false;
       }
 
-      return;
+      return false;
     }
 
     updateActiveProfileData((currentProfileData) => {
@@ -621,11 +763,12 @@ function App() {
     });
 
     closeShiftDialog();
+    return true;
   }
 
   async function handleSaveBatchShifts(shiftInputs) {
     if (!shiftInputs.length) {
-      return;
+      return false;
     }
 
     if (isCloudMode) {
@@ -657,11 +800,13 @@ function App() {
         }));
 
         closeShiftDialog();
+        return true;
       } catch (error) {
         setCloudError(error.message || 'Unable to save the scanned shifts.');
+        return false;
       }
 
-      return;
+      return false;
     }
 
     updateActiveProfileData((currentProfileData) => ({
@@ -676,6 +821,7 @@ function App() {
     }));
 
     closeShiftDialog();
+    return true;
   }
 
   function handleEditShift(shift) {
@@ -827,12 +973,38 @@ function App() {
 
   function handleCalendarDateClick(dateString) {
     setSelectedDate(dateString);
+    setHistoryFilterType('all');
+    setHistoryFilterValue('');
+    setView('byDay');
+  }
+
+  function handleHistoryFilterTypeChange(nextType) {
+    setSelectedDate('');
+    setHistoryFilterType(nextType);
+    setHistoryFilterValue('');
+  }
+
+  function handleHistoryFilterValueChange(nextValue) {
+    setSelectedDate('');
+    setHistoryFilterValue(nextValue);
+  }
+
+  function clearHistoryFilters() {
+    setSelectedDate('');
+    setHistoryFilterType('all');
+    setHistoryFilterValue('');
+  }
+
+  function handlePayPeriodSelect(period) {
+    setSelectedDate('');
+    setHistoryFilterType('payPeriod');
+    setHistoryFilterValue(period.key);
     setView('byDay');
   }
 
   function handleChangeProfile(nextProfileId) {
     setActiveProfileId(nextProfileId);
-    setSelectedDate('');
+    clearHistoryFilters();
     setEditingShift(null);
     setIsAddOpen(false);
     setIsSettingsOpen(false);
@@ -1246,7 +1418,7 @@ function App() {
               />
             </SimpleGrid>
 
-            {selectedDate && view === 'byDay' ? (
+            {view === 'byDay' ? (
               <Flex
                 mb={4}
                 p={4}
@@ -1260,14 +1432,78 @@ function App() {
                 gap={3}
               >
                 <Box>
-                  <Text fontWeight="semibold">Filtered to {formatDateLabel(selectedDate)}</Text>
+                  <Text fontWeight="semibold">
+                    {activeHistoryLabel || 'Browse your saved shifts'}
+                  </Text>
                   <Text color="gray.400" fontSize="sm">
-                    Showing only the shifts from the date you selected in calendar view.
+                    Filter by day, month, week, or pay period to find and fix older entries faster.
                   </Text>
                 </Box>
-                <Button variant="outline" onClick={() => setSelectedDate('')}>
-                  Clear Filter
-                </Button>
+                <HStack spacing={2} flexWrap="wrap">
+                  <Select
+                    value={historyFilterType}
+                    onChange={(event) => handleHistoryFilterTypeChange(event.target.value)}
+                    maxW={{ base: 'full', md: '180px' }}
+                    bg="#101726"
+                    borderColor="whiteAlpha.200"
+                  >
+                    <option value="all">All shifts</option>
+                    <option value="month">By month</option>
+                    <option value="week">By week</option>
+                    <option value="payPeriod">By pay period</option>
+                  </Select>
+                  {historyFilterType === 'month' ? (
+                    <Select
+                      placeholder="Choose month"
+                      value={historyFilterValue}
+                      onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
+                      maxW={{ base: 'full', md: '220px' }}
+                      bg="#101726"
+                      borderColor="whiteAlpha.200"
+                    >
+                      {monthOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : null}
+                  {historyFilterType === 'week' ? (
+                    <Select
+                      placeholder="Choose week"
+                      value={historyFilterValue}
+                      onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
+                      maxW={{ base: 'full', md: '220px' }}
+                      bg="#101726"
+                      borderColor="whiteAlpha.200"
+                    >
+                      {weekOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : null}
+                  {historyFilterType === 'payPeriod' ? (
+                    <Select
+                      placeholder="Choose pay period"
+                      value={historyFilterValue}
+                      onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
+                      maxW={{ base: 'full', md: '240px' }}
+                      bg="#101726"
+                      borderColor="whiteAlpha.200"
+                    >
+                      {payPeriodOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : null}
+                  <Button variant="outline" onClick={clearHistoryFilters}>
+                    Clear
+                  </Button>
+                </HStack>
               </Flex>
             ) : null}
 
@@ -1275,7 +1511,11 @@ function App() {
 
             {view === 'dashboard' ? (
               <Box display="grid" gap={6}>
-                <BiWeeklyHours shifts={shifts} settings={settings} />
+                <BiWeeklyHours
+                  shifts={shifts}
+                  settings={settings}
+                  onSelectPeriod={handlePayPeriodSelect}
+                />
                 <ShiftsByDay
                   shifts={sortedShifts.slice(0, 8)}
                   settings={settings}
@@ -1295,18 +1535,24 @@ function App() {
                 settings={settings}
                 onEdit={handleEditShift}
                 onDelete={handleDeleteShift}
-                title={selectedDate ? `Shifts on ${formatDateLabel(selectedDate)}` : 'All shifts'}
+                title={activeHistoryLabel || 'All shifts'}
                 badgeLabel={`${filteredShifts.length} ${filteredShifts.length === 1 ? 'shift' : 'shifts'}`}
-                emptyTitle={selectedDate ? 'No shifts on this date.' : 'No shifts logged yet.'}
+                emptyTitle={selectedDate || historyFilterValue ? 'No shifts in this filter.' : 'No shifts logged yet.'}
                 emptySubtitle={
-                  selectedDate
-                    ? 'Pick another day from the calendar or clear the filter.'
+                  selectedDate || historyFilterValue
+                    ? 'Try another filter or clear it to see your full shift history.'
                     : 'Add a shift to start building your history.'
                 }
               />
             ) : null}
 
-            {view === 'biWeekly' ? <BiWeeklyHours shifts={shifts} settings={settings} /> : null}
+            {view === 'biWeekly' ? (
+              <BiWeeklyHours
+                shifts={shifts}
+                settings={settings}
+                onSelectPeriod={handlePayPeriodSelect}
+              />
+            ) : null}
             {view === 'floor' ? <FloorComparison shifts={shifts} settings={settings} /> : null}
             {view === 'calendar' ? (
               <CalendarView
@@ -1325,6 +1571,7 @@ function App() {
           onSaveBatch={handleSaveBatchShifts}
           editingShift={editingShift}
           settings={settings}
+          existingShifts={shifts}
         />
 
         <SettingsDialog

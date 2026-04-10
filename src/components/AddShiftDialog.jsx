@@ -70,13 +70,37 @@ function formatCurrency(value) {
   return `$${value.toFixed(2)}`;
 }
 
+function getReceiptFingerprint(shift) {
+  return [
+    shift.date || 'missing-date',
+    shift.endTime || 'missing-time',
+    Number(shift.sales || 0).toFixed(2),
+    Number(shift.tips || 0).toFixed(2),
+  ].join('|');
+}
+
 function createShiftFromParsedReceipt(parsed, fallbackForm = createEmptyForm()) {
+  const fallbackDate =
+    fallbackForm.date && fallbackForm.date !== today() ? fallbackForm.date : '';
   const startTime = fallbackForm.startTime || '17:00';
-  const endTime = parsed.fields.endTime || fallbackForm.endTime || '';
-  const hours = calculateHours(startTime, endTime) || fallbackForm.hours || '';
+  const endTime = parsed.fields.endTime || '';
+  const hours = endTime ? calculateHours(startTime, endTime) : '';
+  const issues = [];
+
+  if (!parsed.fields.date) {
+    issues.push('Missing date');
+  }
+
+  if (!parsed.fields.endTime) {
+    issues.push('Missing clock-out time');
+  }
+
+  if (!hours) {
+    issues.push('Hours need review');
+  }
 
   return {
-    date: parsed.fields.date || fallbackForm.date,
+    date: parsed.fields.date || fallbackDate,
     startTime,
     endTime,
     hours,
@@ -85,10 +109,19 @@ function createShiftFromParsedReceipt(parsed, fallbackForm = createEmptyForm()) 
     earnings: fallbackForm.earnings || '',
     floor: fallbackForm.floor || '',
     notes: parsed.fields.notes || fallbackForm.notes || '',
+    issues,
   };
 }
 
-function AddShiftDialog({ isOpen, onClose, onSave, onSaveBatch, editingShift, settings }) {
+function AddShiftDialog({
+  isOpen,
+  onClose,
+  onSave,
+  onSaveBatch,
+  editingShift,
+  settings,
+  existingShifts = [],
+}) {
   const [form, setForm] = useState(createEmptyForm);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
@@ -189,12 +222,19 @@ function AddShiftDialog({ isOpen, onClose, onSave, onSaveBatch, editingShift, se
         setForm(draft);
       }
 
-      return {
+      const shift = {
         id: crypto.randomUUID(),
         fileName: file.name,
         summary: parsed.summary,
         shift: draft,
       };
+
+      const duplicateFingerprint = getReceiptFingerprint(draft);
+      shift.isDuplicate = existingShifts.some(
+        (existingShift) => getReceiptFingerprint(existingShift) === duplicateFingerprint
+      );
+
+      return shift;
     } catch (error) {
       setScanError(error.message || 'Unable to read this receipt.');
       return null;
@@ -213,10 +253,19 @@ function AddShiftDialog({ isOpen, onClose, onSave, onSaveBatch, editingShift, se
     if (files.length === 1) {
       await processReceiptFile(files[0]);
     } else {
+      const knownFingerprints = new Set([
+        ...existingShifts.map(getReceiptFingerprint),
+        ...batchDrafts.map((draft) => getReceiptFingerprint(draft.shift)),
+      ]);
       const nextDrafts = [];
       for (const file of files) {
         const result = await processReceiptFile(file, { preserveCurrentForm: true });
         if (result) {
+          const fingerprint = getReceiptFingerprint(result.shift);
+          if (knownFingerprints.has(fingerprint)) {
+            result.isDuplicate = true;
+          }
+          knownFingerprints.add(fingerprint);
           nextDrafts.push(result);
         }
       }
@@ -259,10 +308,19 @@ function AddShiftDialog({ isOpen, onClose, onSave, onSaveBatch, editingShift, se
       return;
     }
 
+    const knownFingerprints = new Set([
+      ...existingShifts.map(getReceiptFingerprint),
+      ...batchDrafts.map((draft) => getReceiptFingerprint(draft.shift)),
+    ]);
     const nextDrafts = [];
     for (const file of files) {
       const result = await processReceiptFile(file, { preserveCurrentForm: true });
       if (result) {
+        const fingerprint = getReceiptFingerprint(result.shift);
+        if (knownFingerprints.has(fingerprint)) {
+          result.isDuplicate = true;
+        }
+        knownFingerprints.add(fingerprint);
         nextDrafts.push(result);
       }
     }
@@ -283,13 +341,19 @@ function AddShiftDialog({ isOpen, onClose, onSave, onSaveBatch, editingShift, se
     setBatchDrafts((currentDrafts) => currentDrafts.filter((draft) => draft.id !== draftId));
   }
 
-  function handleSaveBatchDrafts() {
+  async function handleSaveBatchDrafts() {
     if (!batchDrafts.length || !onSaveBatch) {
       return;
     }
 
-    onSaveBatch(
-      batchDrafts.map((draft) => ({
+    const draftsToSave = batchDrafts.filter((draft) => !draft.isDuplicate);
+    if (!draftsToSave.length) {
+      setScanError('Every scanned receipt in this batch looks like a duplicate of an existing shift.');
+      return;
+    }
+
+    const saved = await onSaveBatch(
+      draftsToSave.map((draft) => ({
         ...draft.shift,
         hours: Number(draft.shift.hours) || 0,
         sales: Number(draft.shift.sales) || 0,
@@ -298,7 +362,9 @@ function AddShiftDialog({ isOpen, onClose, onSave, onSaveBatch, editingShift, se
       }))
     );
 
-    setBatchDrafts([]);
+    if (saved) {
+      setBatchDrafts([]);
+    }
   }
 
   function handleSave() {
@@ -460,11 +526,20 @@ function AddShiftDialog({ isOpen, onClose, onSave, onSaveBatch, editingShift, se
                             <Badge colorScheme="orange">
                               {draft.shift.hours || '0.00'} hrs
                             </Badge>
+                            {draft.isDuplicate ? <Badge colorScheme="red">Possible duplicate</Badge> : null}
+                            {draft.shift.issues?.length ? (
+                              <Badge colorScheme="yellow">Needs review</Badge>
+                            ) : null}
                           </HStack>
                           <Text mt={2} fontSize="sm" color="gray.300">
                             Sales {formatCurrency(Number(draft.shift.sales) || 0)} • Tips{' '}
                             {formatCurrency(Number(draft.shift.tips) || 0)}
                           </Text>
+                          {draft.shift.issues?.length ? (
+                            <Text mt={1} fontSize="xs" color="yellow.200">
+                              {draft.shift.issues.join(' • ')}
+                            </Text>
+                          ) : null}
                         </Box>
                         <HStack spacing={2}>
                           <Button size="sm" variant="outline" onClick={() => handleUseBatchDraft(draft)}>

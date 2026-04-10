@@ -1,3 +1,4 @@
+const TIME_SEPARATOR_PATTERN = '[:.\\s]';
 const TIME_SUFFIX_PATTERN = '(?:a(?:\\.?\\s*m\\.?)?|p(?:\\.?\\s*m\\.?)?|am|pm|a|p)?';
 const DATE_SEPARATOR_PATTERN = '[\\/\\-.]';
 
@@ -32,7 +33,9 @@ function extractLabelValue(text, pattern) {
 }
 
 function extractFirstTime(text) {
-  const match = text.match(new RegExp(`\\b(\\d{1,2}[:.]\\d{2}\\s*${TIME_SUFFIX_PATTERN})\\b`, 'i'));
+  const match = text.match(
+    new RegExp(`\\b(\\d{1,2}${TIME_SEPARATOR_PATTERN}\\d{2}\\s*${TIME_SUFFIX_PATTERN})\\b`, 'i')
+  );
   return match?.[1]?.trim() || '';
 }
 
@@ -80,6 +83,7 @@ function normalizeTimeForInput(rawTime, options = {}) {
   const normalized = rawTime
     .toLowerCase()
     .replace(/\./g, '')
+    .replace(/(\d{1,2})\s+(\d{2})/, '$1:$2')
     .replace(/\b([ap])\b/g, '$1m')
     .replace(/\s+/g, ' ')
     .trim();
@@ -117,11 +121,11 @@ export function parseReceiptText(text) {
     new RegExp(`date[\\s\\S]{0,20}?(\\d{1,2}${DATE_SEPARATOR_PATTERN}\\d{1,2}${DATE_SEPARATOR_PATTERN}\\d{2,4})`, 'i')
   ) || extractFirstDate(topChunk);
   const labeledTimePattern = new RegExp(
-    `time[\\s\\S]{0,20}?(\\d{1,2}[:.]\\d{2}\\s*${TIME_SUFFIX_PATTERN})`,
+    `time[\\s\\S]{0,20}?(\\d{1,2}${TIME_SEPARATOR_PATTERN}\\d{2}\\s*${TIME_SUFFIX_PATTERN})`,
     'i'
   );
   const genericTimePattern = new RegExp(
-    `\\b(\\d{1,2}[:.]\\d{2}\\s*${TIME_SUFFIX_PATTERN})\\b`,
+    `\\b(\\d{1,2}${TIME_SEPARATOR_PATTERN}\\d{2}\\s*${TIME_SUFFIX_PATTERN})\\b`,
     'i'
   );
   const rawTime =

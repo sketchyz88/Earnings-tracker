@@ -1,3 +1,5 @@
+const TIME_SUFFIX_PATTERN = '(?:a(?:\\.?\\s*m\\.?)?|p(?:\\.?\\s*m\\.?)?|am|pm|a|p)?';
+
 function extractMoney(rawValue) {
   if (!rawValue) {
     return null;
@@ -14,7 +16,7 @@ function extractLabelValue(text, pattern) {
 }
 
 function extractFirstTime(text) {
-  const match = text.match(/\b(\d{1,2}[:.]\d{2}\s*(?:a\s*m|p\s*m|am|pm)?)\b/i);
+  const match = text.match(new RegExp(`\\b(\\d{1,2}[:.]\\d{2}\\s*${TIME_SUFFIX_PATTERN})\\b`, 'i'));
   return match?.[1]?.trim() || '';
 }
 
@@ -60,6 +62,7 @@ function normalizeTimeForInput(rawTime) {
   const normalized = rawTime
     .toLowerCase()
     .replace(/\./g, '')
+    .replace(/\b([ap])\b/g, '$1m')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -91,15 +94,17 @@ export function parseReceiptText(text) {
     /date[\s\S]{0,20}?(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i
   );
   const topChunk = cleanedText.split('\n').slice(0, 12).join('\n');
+  const labeledTimePattern = new RegExp(
+    `time[\\s\\S]{0,20}?(\\d{1,2}[:.]\\d{2}\\s*${TIME_SUFFIX_PATTERN})`,
+    'i'
+  );
+  const genericTimePattern = new RegExp(
+    `\\b(\\d{1,2}[:.]\\d{2}\\s*${TIME_SUFFIX_PATTERN})\\b`,
+    'i'
+  );
   const rawTime =
-    extractLabelValue(
-      cleanedText,
-      /time[\s\S]{0,20}?(\d{1,2}[:.]\d{2}\s*(?:a\s*m|p\s*m|am|pm)?)/i
-    ) ||
-    extractLabelValue(
-      cleanedText,
-      /\b(\d{1,2}[:.]\d{2}\s*(?:a\s*m|p\s*m|am|pm))\b/i
-    ) ||
+    extractLabelValue(cleanedText, labeledTimePattern) ||
+    extractLabelValue(cleanedText, genericTimePattern) ||
     extractFirstTime(topChunk);
 
   const extracted = {

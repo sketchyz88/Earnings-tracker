@@ -246,6 +246,10 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
                   <Text fontSize="sm" color="gray.400" mt={1}>
                     Take a new photo or upload one from your phone and I’ll try to pull in the date, time, sales, and credit tips for you.
                   </Text>
+                  <Text fontSize="xs" color="gray.500" mt={2}>
+                    Receipt scans assume a `5:00 PM` start time and use the top receipt time as
+                    your clock-out time.
+                  </Text>
                 </Box>
                 <HStack spacing={2} flexWrap="wrap">
                   <Button

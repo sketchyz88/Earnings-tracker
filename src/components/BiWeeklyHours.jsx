@@ -36,6 +36,42 @@ function getPeriodStart(date) {
   return periodStart;
 }
 
+function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOutRate) {
+  const periodEnd = new Date(periodStart);
+  periodEnd.setDate(periodEnd.getDate() + (PAY_PERIOD_LENGTH_DAYS - 1));
+
+  const hours = periodShifts.reduce((sum, shift) => sum + (Number(shift.hours) || 0), 0);
+  const sales = periodShifts.reduce((sum, shift) => sum + (Number(shift.sales) || 0), 0);
+  const tips = periodShifts.reduce((sum, shift) => sum + (Number(shift.tips) || 0), 0);
+  const tipOut = sales * (tipOutRate / 100);
+  const basePay = periodShifts.reduce((sum, shift) => {
+    const explicit = Number(shift.earnings);
+    if (Number.isFinite(explicit) && explicit > 0) {
+      return sum + explicit;
+    }
+    return sum + (Number(shift.hours) || 0) * hourlyRate;
+  }, 0);
+
+  return {
+    key: periodStart.toISOString(),
+    label: `${periodStart.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    })} - ${periodEnd.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    })}`,
+    hours: Number(hours.toFixed(1)),
+    sales: Number(sales.toFixed(2)),
+    tips: Number(tips.toFixed(2)),
+    tipOut: Number(tipOut.toFixed(2)),
+    netTips: Number((tips - tipOut).toFixed(2)),
+    basePay: Number(basePay.toFixed(2)),
+    totalTakeHome: Number((tips - tipOut + basePay).toFixed(2)),
+    shifts: periodShifts.length,
+  };
+}
+
 function getPeriods(shifts, hourlyRate, tipOutRate) {
   if (!shifts.length) {
     return [];
@@ -58,41 +94,9 @@ function getPeriods(shifts, hourlyRate, tipOutRate) {
     groupedPeriods.get(periodKey).push(shift);
   });
 
-  return Array.from(groupedPeriods.entries()).map(([periodKey, periodShifts]) => {
-    const periodStart = new Date(periodKey);
-    const periodEnd = new Date(periodStart);
-    periodEnd.setDate(periodEnd.getDate() + (PAY_PERIOD_LENGTH_DAYS - 1));
-
-    const hours = periodShifts.reduce((sum, shift) => sum + (Number(shift.hours) || 0), 0);
-    const sales = periodShifts.reduce((sum, shift) => sum + (Number(shift.sales) || 0), 0);
-    const tips = periodShifts.reduce((sum, shift) => sum + (Number(shift.tips) || 0), 0);
-    const tipOut = sales * (tipOutRate / 100);
-    const basePay = periodShifts.reduce((sum, shift) => {
-      const explicit = Number(shift.earnings);
-      if (Number.isFinite(explicit) && explicit > 0) {
-        return sum + explicit;
-      }
-      return sum + (Number(shift.hours) || 0) * hourlyRate;
-    }, 0);
-
-    return {
-      label: `${periodStart.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      })} - ${periodEnd.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      })}`,
-      hours: Number(hours.toFixed(1)),
-      sales: Number(sales.toFixed(2)),
-      tips: Number(tips.toFixed(2)),
-      tipOut: Number(tipOut.toFixed(2)),
-      netTips: Number((tips - tipOut).toFixed(2)),
-      basePay: Number(basePay.toFixed(2)),
-      totalTakeHome: Number((tips - tipOut + basePay).toFixed(2)),
-      shifts: periodShifts.length,
-    };
-  });
+  return Array.from(groupedPeriods.entries()).map(([periodKey, periodShifts]) =>
+    buildPeriodSummary(new Date(periodKey), periodShifts, hourlyRate, tipOutRate)
+  );
 }
 
 function Metric({ label, value, accent = 'white' }) {
@@ -112,6 +116,8 @@ function BiWeeklyHours({ shifts, settings }) {
   const periods = getPeriods(shifts || [], settings?.hourlyRate || 0, settings?.tipOutRate || 0);
   const hoursGoal = settings?.hoursGoal || 80;
   const tipGoal = settings?.tipGoal || 100;
+  const todayPeriodStart = getPeriodStart(new Date());
+  const todayPeriodKey = todayPeriodStart.toISOString();
 
   if (!periods.length) {
     return (
@@ -134,7 +140,9 @@ function BiWeeklyHours({ shifts, settings }) {
     );
   }
 
-  const currentPeriod = periods[periods.length - 1];
+  const currentPeriod =
+    periods.find((period) => period.key === todayPeriodKey) ||
+    buildPeriodSummary(todayPeriodStart, [], settings?.hourlyRate || 0, settings?.tipOutRate || 0);
   const hoursProgress = Math.min(100, (currentPeriod.hours / hoursGoal) * 100);
   const tipsProgress = Math.min(100, (currentPeriod.netTips / tipGoal) * 100);
 

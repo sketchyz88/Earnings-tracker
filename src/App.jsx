@@ -29,7 +29,7 @@ import {
 import AddShiftDialog from './components/AddShiftDialog';
 import AboutView from './components/AboutView';
 import AuthScreen from './components/AuthScreen';
-import BiWeeklyHours, { getPeriods } from './components/BiWeeklyHours';
+import BiWeeklyHours, { buildPeriodSummary, getPeriodStart, getPeriods } from './components/BiWeeklyHours';
 import CalendarView from './components/CalendarView';
 import FloorComparison from './components/FloorComparison';
 import SettingsDialog from './components/SettingsDialog';
@@ -543,7 +543,36 @@ function App() {
   const canImportLocalData =
     isCloudMode && !cloudProfileData.shifts.length && hasLocalDataToImport(localDataset);
 
-  const stats = useMemo(() => computeStats(shifts, settings), [settings, shifts]);
+  const currentPayPeriodStats = useMemo(() => {
+    const todayPeriodStart = getPeriodStart(new Date());
+    const todayPeriodKey = todayPeriodStart.toISOString();
+    const periods = getPeriods(shifts, settings?.hourlyRate || 0, settings?.tipOutRate || 0);
+
+    return (
+      periods.find((period) => period.key === todayPeriodKey) ||
+      buildPeriodSummary(
+        todayPeriodStart,
+        [],
+        settings?.hourlyRate || 0,
+        settings?.tipOutRate || 0
+      )
+    );
+  }, [settings?.hourlyRate, settings?.tipOutRate, shifts]);
+  const yearlyStats = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const yearShifts = shifts.filter((shift) => {
+      if (!shift.date) {
+        return false;
+      }
+
+      return new Date(`${shift.date}T00:00:00`).getFullYear() === currentYear;
+    });
+
+    return {
+      year: currentYear,
+      ...computeStats(yearShifts, settings),
+    };
+  }, [settings, shifts]);
 
   const monthOptions = useMemo(() => {
     const seen = new Map();
@@ -1390,30 +1419,36 @@ function App() {
             <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={4} mb={6}>
               <StatCard
                 icon={TrendingUp}
-                label="Net tips"
-                value={formatCurrency(stats.totalNetTips)}
-                helper={`${profileName} • ${formatCurrency(stats.totalTipOut)} total tip-out removed`}
+                label="Net tips this pay period"
+                value={formatCurrency(currentPayPeriodStats.netTips)}
+                helper={`${currentPayPeriodStats.label} • ${currentPayPeriodStats.shifts} ${
+                  currentPayPeriodStats.shifts === 1 ? 'shift' : 'shifts'
+                } logged`}
                 accent="#68d391"
               />
               <StatCard
                 icon={Wallet}
-                label="Estimated take-home"
-                value={formatCurrency(stats.totalTakeHome)}
-                helper="Net tips plus base pay"
+                label="Take-home this pay period"
+                value={formatCurrency(currentPayPeriodStats.totalTakeHome)}
+                helper="Net tips plus base pay for this check"
                 accent="#7dd3fc"
               />
               <StatCard
                 icon={TrendingDown}
-                label="Tip-out paid"
-                value={formatCurrency(stats.totalTipOut)}
-                helper={`${settings.tipOutRate}% of ${formatCurrency(stats.totalSales)} sales over time`}
+                label="Tip-out this pay period"
+                value={formatCurrency(currentPayPeriodStats.tipOut)}
+                helper={`${settings.tipOutRate}% of ${formatCurrency(
+                  currentPayPeriodStats.sales
+                )} sales this check`}
                 accent="#fc8181"
               />
               <StatCard
                 icon={Target}
-                label="Average take-home"
-                value={formatCurrency(stats.avgTakeHomePerShift)}
-                helper={`Gross tips ${formatCurrency(stats.totalTips)} • ${stats.totalHours.toFixed(1)} hours`}
+                label="Yearly wages"
+                value={formatCurrency(yearlyStats.totalTakeHome)}
+                helper={`${yearlyStats.year} total • ${formatCurrency(
+                  yearlyStats.totalBasePay
+                )} base pay + ${formatCurrency(yearlyStats.totalNetTips)} net tips`}
                 accent="#f687b3"
               />
             </SimpleGrid>

@@ -27,6 +27,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import AddShiftDialog from './components/AddShiftDialog';
+import AboutView from './components/AboutView';
 import AuthScreen from './components/AuthScreen';
 import BiWeeklyHours from './components/BiWeeklyHours';
 import CalendarView from './components/CalendarView';
@@ -914,6 +915,7 @@ function App() {
   }
 
   const navItems = [
+    ['about', 'About'],
     ['dashboard', 'Dashboard'],
     ['byDay', 'By Day'],
     ['biWeekly', 'Bi-Weekly'],
@@ -1213,6 +1215,8 @@ function App() {
                 </Button>
               </Flex>
             ) : null}
+
+            {view === 'about' ? <AboutView /> : null}
 
             {view === 'dashboard' ? (
               <Box display="grid" gap={6}>

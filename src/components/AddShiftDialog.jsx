@@ -76,6 +76,7 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
   const [scanStatus, setScanStatus] = useState('');
   const [scanError, setScanError] = useState('');
   const [scanSummary, setScanSummary] = useState([]);
+  const [isDraggingReceipt, setIsDraggingReceipt] = useState(false);
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -102,6 +103,7 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
       setScanStatus('');
       setScanError('');
       setScanSummary([]);
+      setIsDraggingReceipt(false);
     }
   }, [editingShift, isOpen]);
 
@@ -128,9 +130,7 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
     });
   }
 
-  async function handleReceiptUpload(event) {
-    const [file] = event.target.files || [];
-
+  async function processReceiptFile(file) {
     if (!file) {
       return;
     }
@@ -185,8 +185,33 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
       setScanError(error.message || 'Unable to read this receipt.');
     } finally {
       setIsScanning(false);
-      event.target.value = '';
     }
+  }
+
+  async function handleReceiptUpload(event) {
+    const [file] = event.target.files || [];
+    await processReceiptFile(file);
+    event.target.value = '';
+  }
+
+  function handleReceiptDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setIsDraggingReceipt(true);
+  }
+
+  function handleReceiptDragLeave(event) {
+    event.preventDefault();
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setIsDraggingReceipt(false);
+    }
+  }
+
+  async function handleReceiptDrop(event) {
+    event.preventDefault();
+    setIsDraggingReceipt(false);
+    const [file] = Array.from(event.dataTransfer.files || []);
+    await processReceiptFile(file);
   }
 
   function handleSave() {
@@ -237,18 +262,28 @@ function AddShiftDialog({ isOpen, onClose, onSave, editingShift, settings }) {
               p={4}
               borderRadius="xl"
               border="1px solid"
-              borderColor="whiteAlpha.200"
-              bg="whiteAlpha.50"
+              borderColor={isDraggingReceipt ? 'purple.300' : 'whiteAlpha.200'}
+              bg={isDraggingReceipt ? 'purple.900' : 'whiteAlpha.50'}
+              transition="all 0.2s ease"
+              onDragOver={handleReceiptDragOver}
+              onDragLeave={handleReceiptDragLeave}
+              onDrop={handleReceiptDrop}
             >
               <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={3}>
                 <Box>
                   <Text fontWeight="semibold">Scan a shift receipt</Text>
                   <Text fontSize="sm" color="gray.400" mt={1}>
-                    Take a new photo or upload one from your phone and I’ll try to pull in the date, time, sales, and credit tips for you.
+                    Take a new photo, upload one from your phone, or drag a receipt image here and
+                    I&apos;ll try to pull in the date, time, sales, and credit tips for you.
                   </Text>
                   <Text fontSize="xs" color="gray.500" mt={2}>
                     Receipt scans assume a `5:00 PM` start time and use the top receipt time as
                     your clock-out time.
+                  </Text>
+                  <Text fontSize="xs" color={isDraggingReceipt ? 'purple.100' : 'gray.500'} mt={2}>
+                    {isDraggingReceipt
+                      ? 'Drop the receipt image to scan it now.'
+                      : 'Desktop tip: drag and drop a receipt photo right into this box.'}
                   </Text>
                 </Box>
                 <HStack spacing={2} flexWrap="wrap">

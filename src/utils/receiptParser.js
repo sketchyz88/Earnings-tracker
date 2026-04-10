@@ -1,4 +1,20 @@
 const TIME_SUFFIX_PATTERN = '(?:a(?:\\.?\\s*m\\.?)?|p(?:\\.?\\s*m\\.?)?|am|pm|a|p)?';
+const DATE_SEPARATOR_PATTERN = '[\\/\\-.]';
+
+function cleanDateCandidate(rawValue) {
+  return rawValue
+    ?.replace(/[Oo]/g, '0')
+    .replace(/[Il]/g, '1')
+    .replace(/[^0-9/.\-]/g, '')
+    .trim();
+}
+
+function extractFirstDate(text) {
+  const match = text.match(
+    new RegExp(`\\b(\\d{1,2}${DATE_SEPARATOR_PATTERN}\\d{1,2}${DATE_SEPARATOR_PATTERN}\\d{2,4})\\b`, 'i')
+  );
+  return match?.[1]?.trim() || '';
+}
 
 function extractMoney(rawValue) {
   if (!rawValue) {
@@ -39,7 +55,8 @@ function normalizeDateForInput(rawDate) {
     return undefined;
   }
 
-  const parts = rawDate.split(/[/-]/).map((part) => part.trim());
+  const normalized = cleanDateCandidate(rawDate);
+  const parts = normalized?.split(/[\/.-]/).map((part) => part.trim()) || [];
   if (parts.length !== 3) {
     return undefined;
   }
@@ -54,11 +71,12 @@ function normalizeDateForInput(rawDate) {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
-function normalizeTimeForInput(rawTime) {
+function normalizeTimeForInput(rawTime, options = {}) {
   if (!rawTime) {
     return undefined;
   }
 
+  const { defaultMeridiem } = options;
   const normalized = rawTime
     .toLowerCase()
     .replace(/\./g, '')
@@ -73,7 +91,7 @@ function normalizeTimeForInput(rawTime) {
 
   let hours = Number(match[1]);
   const minutes = match[2];
-  const meridiem = match[3];
+  const meridiem = match[3] || defaultMeridiem;
 
   if (meridiem === 'pm' && hours < 12) {
     hours += 12;
@@ -86,14 +104,18 @@ function normalizeTimeForInput(rawTime) {
   return `${String(hours).padStart(2, '0')}:${minutes}`;
 }
 
+function hasExplicitMeridiem(rawTime) {
+  return /\b(?:a(?:\.?\s*m\.?)?|p(?:\.?\s*m\.?)?|am|pm)\b/i.test(rawTime || '');
+}
+
 export function parseReceiptText(text) {
   const cleanedText = text.replace(/\r/g, '');
+  const topChunk = cleanedText.split('\n').slice(0, 14).join('\n');
 
   const rawDate = extractLabelValue(
     cleanedText,
-    /date[\s\S]{0,20}?(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i
-  );
-  const topChunk = cleanedText.split('\n').slice(0, 12).join('\n');
+    new RegExp(`date[\\s\\S]{0,20}?(\\d{1,2}${DATE_SEPARATOR_PATTERN}\\d{1,2}${DATE_SEPARATOR_PATTERN}\\d{2,4})`, 'i')
+  ) || extractFirstDate(topChunk);
   const labeledTimePattern = new RegExp(
     `time[\\s\\S]{0,20}?(\\d{1,2}[:.]\\d{2}\\s*${TIME_SUFFIX_PATTERN})`,
     'i'
@@ -104,8 +126,12 @@ export function parseReceiptText(text) {
   );
   const rawTime =
     extractLabelValue(cleanedText, labeledTimePattern) ||
-    extractLabelValue(cleanedText, genericTimePattern) ||
+    extractLabelValue(topChunk, labeledTimePattern) ||
+    extractLabelValue(topChunk, genericTimePattern) ||
     extractFirstTime(topChunk);
+  const normalizedEndTime = hasExplicitMeridiem(rawTime)
+    ? normalizeTimeForInput(rawTime)
+    : normalizeTimeForInput(rawTime, { defaultMeridiem: 'pm' });
 
   const extracted = {
     date: rawDate,
@@ -161,7 +187,7 @@ export function parseReceiptText(text) {
   return {
     fields: {
       date: normalizeDateForInput(extracted.date),
-      endTime: normalizeTimeForInput(extracted.time),
+      endTime: normalizedEndTime,
       sales: Number.isFinite(extracted.sales) ? extracted.sales : undefined,
       tips: Number.isFinite(extracted.tips) ? extracted.tips : undefined,
       notes: notes || undefined,

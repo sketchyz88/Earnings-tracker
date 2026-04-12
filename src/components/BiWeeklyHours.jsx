@@ -126,10 +126,10 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
         textAlign="center"
         py={12}
         px={6}
-        bg="#182133"
-        borderRadius="2xl"
+        bg="rgba(12, 23, 34, 0.9)"
+        borderRadius="3xl"
         border="1px solid"
-        borderColor="whiteAlpha.100"
+        borderColor="rgba(188, 212, 198, 0.08)"
       >
         <Text fontSize="lg" fontWeight="semibold">
           No pay-period data yet
@@ -150,11 +150,12 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
   return (
     <Box display="grid" gap={4}>
       <Box
-        bg="#182133"
-        borderRadius="2xl"
+        bg="rgba(12, 23, 34, 0.9)"
+        borderRadius="3xl"
         border="1px solid"
-        borderColor="whiteAlpha.100"
+        borderColor="rgba(188, 212, 198, 0.08)"
         p={{ base: 5, md: 6 }}
+        boxShadow="0 20px 50px rgba(0,0,0,0.18)"
       >
         <Flex justify="space-between" align={{ base: 'flex-start', md: 'center' }} gap={4} mb={5} direction={{ base: 'column', md: 'row' }}>
           <Box>
@@ -218,11 +219,12 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
 
       {periods.length > 1 ? (
         <Box
-          bg="#182133"
-          borderRadius="2xl"
+          bg="rgba(12, 23, 34, 0.9)"
+          borderRadius="3xl"
           border="1px solid"
-          borderColor="whiteAlpha.100"
+          borderColor="rgba(188, 212, 198, 0.08)"
           p={{ base: 5, md: 6 }}
+          boxShadow="0 20px 50px rgba(0,0,0,0.18)"
         >
           <Heading size="sm" mb={4}>
             Tip-out and net tip trend

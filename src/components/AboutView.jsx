@@ -3,13 +3,19 @@ import { Alert, AlertDescription, AlertIcon, Box, Heading, SimpleGrid, Text } fr
 function InfoCard({ title, body }) {
   return (
     <Box
-      bg="#182133"
-      borderRadius="2xl"
+      bg="rgba(12, 23, 34, 0.9)"
+      borderRadius="3xl"
       border="1px solid"
-      borderColor="whiteAlpha.100"
+      borderColor="rgba(188, 212, 198, 0.08)"
       p={{ base: 5, md: 6 }}
+      boxShadow="0 20px 50px rgba(0, 0, 0, 0.18)"
     >
-      <Heading size="sm">{title}</Heading>
+      <Text fontSize="xs" color="green.200" fontWeight="semibold" letterSpacing="0.14em" textTransform="uppercase">
+        Details
+      </Text>
+      <Heading mt={3} size="sm" letterSpacing="-0.02em">
+        {title}
+      </Heading>
       <Text mt={3} color="gray.300" lineHeight="tall">
         {body}
       </Text>
@@ -21,16 +27,17 @@ function AboutView() {
   return (
     <Box display="grid" gap={4}>
       <Box
-        bg="#182133"
-        borderRadius="2xl"
+        bg="linear-gradient(180deg, rgba(14,26,38,0.96) 0%, rgba(9,18,28,0.96) 100%)"
+        borderRadius="3xl"
         border="1px solid"
-        borderColor="whiteAlpha.100"
+        borderColor="rgba(188, 212, 198, 0.08)"
         p={{ base: 5, md: 6 }}
+        boxShadow="0 24px 60px rgba(0,0,0,0.2)"
       >
-        <Text fontSize="sm" color="teal.200" fontWeight="semibold" letterSpacing="0.08em">
+        <Text fontSize="sm" color="green.200" fontWeight="semibold" letterSpacing="0.14em">
           ABOUT THIS APP
         </Text>
-        <Heading mt={2} size="lg">
+        <Heading mt={2} size="lg" letterSpacing="-0.03em">
           What Earnings Tracker does
         </Heading>
         <Text mt={3} color="gray.300" lineHeight="tall">
@@ -42,9 +49,9 @@ function AboutView() {
 
       <Alert
         status="info"
-        borderRadius="2xl"
-        bg="#132238"
-        border="1px solid rgba(255,255,255,0.08)"
+        borderRadius="3xl"
+        bg="rgba(19, 34, 56, 0.78)"
+        border="1px solid rgba(125, 211, 252, 0.14)"
       >
         <AlertIcon />
         <AlertDescription>

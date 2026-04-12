@@ -60,11 +60,115 @@ const theme = extendTheme({
     initialColorMode: 'dark',
     useSystemColorMode: false,
   },
+  fonts: {
+    heading: `'Avenir Next', 'Segoe UI', sans-serif`,
+    body: `'Avenir Next', 'Segoe UI', sans-serif`,
+  },
+  colors: {
+    brand: {
+      50: '#eefbf5',
+      100: '#d2f4e4',
+      200: '#a9e8ca',
+      300: '#74d9aa',
+      400: '#3cc387',
+      500: '#1f9a68',
+      600: '#197b53',
+      700: '#155f42',
+      800: '#134c36',
+      900: '#103d2c',
+    },
+  },
   styles: {
     global: {
       body: {
-        bg: '#101726',
-        color: 'white',
+        bg: '#07111a',
+        color: '#f5f7f4',
+        backgroundImage:
+          'radial-gradient(circle at top, rgba(31,154,104,0.16), transparent 28%), linear-gradient(180deg, #09131d 0%, #07111a 42%, #050c13 100%)',
+      },
+      '*::placeholder': {
+        color: '#7d8c97',
+      },
+    },
+  },
+  components: {
+    Button: {
+      baseStyle: {
+        borderRadius: 'full',
+        fontWeight: 'semibold',
+      },
+    },
+    Input: {
+      variants: {
+        outline: {
+          field: {
+            bg: '#0d1924',
+            borderColor: 'rgba(188, 212, 198, 0.14)',
+            color: '#f5f7f4',
+            _hover: {
+              borderColor: 'rgba(188, 212, 198, 0.24)',
+            },
+            _focusVisible: {
+              borderColor: '#74d9aa',
+              boxShadow: '0 0 0 1px #74d9aa',
+            },
+          },
+        },
+      },
+    },
+    Select: {
+      variants: {
+        outline: {
+          field: {
+            bg: '#0d1924',
+            borderColor: 'rgba(188, 212, 198, 0.14)',
+            color: '#f5f7f4',
+            _hover: {
+              borderColor: 'rgba(188, 212, 198, 0.24)',
+            },
+            _focusVisible: {
+              borderColor: '#74d9aa',
+              boxShadow: '0 0 0 1px #74d9aa',
+            },
+          },
+          icon: {
+            color: '#9fb3a4',
+          },
+        },
+      },
+    },
+    NumberInput: {
+      variants: {
+        outline: {
+          field: {
+            bg: '#0d1924',
+            borderColor: 'rgba(188, 212, 198, 0.14)',
+            color: '#f5f7f4',
+            _hover: {
+              borderColor: 'rgba(188, 212, 198, 0.24)',
+            },
+            _focusVisible: {
+              borderColor: '#74d9aa',
+              boxShadow: '0 0 0 1px #74d9aa',
+            },
+          },
+        },
+      },
+    },
+    Textarea: {
+      variants: {
+        outline: {
+          bg: '#0d1924',
+          borderColor: 'rgba(188, 212, 198, 0.14)',
+          color: '#f5f7f4',
+          _hover: {
+            borderColor: 'rgba(188, 212, 198, 0.24)',
+          },
+          _focusVisible: {
+            borderColor: '#74d9aa',
+            boxShadow: '0 0 0 1px #74d9aa',
+          },
+        },
       },
     },
   },
@@ -353,29 +457,38 @@ function formatWeekLabel(startDate) {
 function StatCard({ icon: Icon, label, value, helper, accent }) {
   return (
     <Box
-      bg="#1a2335"
-      borderRadius="2xl"
-      p={5}
+      bg="linear-gradient(180deg, rgba(14,26,38,0.96) 0%, rgba(9,18,28,0.96) 100%)"
+      borderRadius="3xl"
+      p={{ base: 5, md: 6 }}
       border="1px solid"
-      borderColor="whiteAlpha.100"
-      boxShadow="lg"
+      borderColor="rgba(188, 212, 198, 0.1)"
+      boxShadow="0 20px 50px rgba(0, 0, 0, 0.22)"
     >
       <Flex justify="space-between" align="flex-start" gap={4}>
         <Box>
-          <Text color={accent} fontSize="2xl" fontWeight="bold" lineHeight="shorter">
-            {value}
-          </Text>
-          <Text mt={2} color="gray.300" fontSize="sm" fontWeight="semibold">
+          <Text color="gray.400" fontSize="xs" fontWeight="semibold" letterSpacing="0.12em" textTransform="uppercase">
             {label}
           </Text>
-          <Text mt={1} color="gray.500" fontSize="xs">
+          <Text mt={3} color={accent} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" lineHeight="shorter">
+            {value}
+          </Text>
+          <Text mt={2} color="gray.400" fontSize="sm" lineHeight="tall">
             {helper}
           </Text>
         </Box>
 
-        <Box color={accent} opacity={0.8}>
+        <Flex
+          color={accent}
+          opacity={0.95}
+          bg="rgba(255,255,255,0.03)"
+          border="1px solid rgba(255,255,255,0.06)"
+          borderRadius="2xl"
+          p={3}
+          align="center"
+          justify="center"
+        >
           <Icon size={24} />
-        </Box>
+        </Flex>
       </Flex>
     </Box>
   );
@@ -1202,11 +1315,12 @@ function App() {
     content = (
       <Box minH="100vh" bg="#101726">
         <Box
-          bg="#0d1422"
+          bg="rgba(7, 17, 26, 0.82)"
+          backdropFilter="blur(18px)"
           borderBottom="1px solid"
-          borderColor="whiteAlpha.100"
+          borderColor="rgba(188, 212, 198, 0.08)"
           px={{ base: 4, md: 6 }}
-          py={4}
+          py={{ base: 5, md: 6 }}
         >
           <Flex
             maxW="1280px"
@@ -1217,15 +1331,25 @@ function App() {
             direction={{ base: 'column', md: 'row' }}
           >
             <Box>
-              <Text fontSize="2xl" fontWeight="bold">
+              <Text fontSize="xs" color="brand.200" fontWeight="semibold" letterSpacing="0.18em" textTransform="uppercase">
+                Tips Cafe
+              </Text>
+              <Text mt={2} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" letterSpacing="-0.03em">
                 Earnings Tracker
               </Text>
               <HStack spacing={3} mt={1} flexWrap="wrap">
-                <Text color="gray.400" fontSize="sm">
-                  Track shifts, monitor pay periods, and compare where your strongest tips come
-                  from.
+                <Text color="gray.400" fontSize="sm" maxW="720px" lineHeight="tall">
+                  A cleaner way to log shifts, review checks, and see what you actually keep after tip-out.
                 </Text>
-                <Badge colorScheme={isCloudMode ? 'green' : 'orange'} borderRadius="full" px={2.5}>
+                <Badge
+                  bg={isCloudMode ? 'rgba(60,195,135,0.14)' : 'rgba(246,173,85,0.14)'}
+                  color={isCloudMode ? 'brand.200' : 'orange.200'}
+                  borderRadius="full"
+                  px={3}
+                  py={1}
+                  border="1px solid"
+                  borderColor={isCloudMode ? 'rgba(60,195,135,0.22)' : 'rgba(246,173,85,0.2)'}
+                >
                   {isCloudMode ? 'Synced Account' : 'Local Device Mode'}
                 </Badge>
               </HStack>
@@ -1234,14 +1358,15 @@ function App() {
             <HStack spacing={2} alignSelf={{ base: 'stretch', md: 'center' }} flexWrap="wrap">
               {isCloudMode ? (
                 <>
-                  <Badge colorScheme="blue" borderRadius="full" px={3} py={1}>
+                  <Badge bg="rgba(125, 211, 252, 0.12)" color="blue.100" borderRadius="full" px={3} py={1}>
                     {session.user.email}
                   </Badge>
                   <IconButton
                     icon={<LogOut size={16} />}
                     variant="outline"
-                    borderColor="whiteAlpha.200"
+                    borderColor="rgba(188, 212, 198, 0.14)"
                     color="gray.100"
+                    bg="rgba(255,255,255,0.02)"
                     aria-label="Sign out"
                     onClick={handleSignOut}
                   />
@@ -1252,8 +1377,6 @@ function App() {
                     value={activeProfileId}
                     onChange={(event) => handleChangeProfile(event.target.value)}
                     maxW={{ base: 'full', md: '220px' }}
-                    bg="#182133"
-                    borderColor="whiteAlpha.200"
                   >
                     {(profileStore.profiles || []).map((profile) => (
                       <option key={profile.id} value={profile.id}>
@@ -1263,7 +1386,7 @@ function App() {
                   </Select>
                   <Button
                     variant="outline"
-                    borderColor="whiteAlpha.200"
+                    borderColor="rgba(188, 212, 198, 0.14)"
                     color="gray.100"
                     onClick={handleCreateProfile}
                   >
@@ -1275,21 +1398,22 @@ function App() {
               <IconButton
                 icon={<Settings size={16} />}
                 variant="outline"
-                borderColor="whiteAlpha.200"
+                borderColor="rgba(188, 212, 198, 0.14)"
                 color="gray.100"
+                bg="rgba(255,255,255,0.02)"
                 aria-label="Open settings"
                 onClick={() => setIsSettingsOpen(true)}
               />
               <Button
                 leftIcon={<Download size={16} />}
                 variant="outline"
-                borderColor="whiteAlpha.200"
+                borderColor="rgba(188, 212, 198, 0.14)"
                 color="gray.100"
                 onClick={handleExportCsv}
               >
                 Export CSV
               </Button>
-              <Button leftIcon={<Plus size={16} />} colorScheme="teal" onClick={openNewShiftDialog}>
+              <Button leftIcon={<Plus size={16} />} bg="brand.400" color="#08120d" _hover={{ bg: 'brand.300' }} onClick={openNewShiftDialog}>
                 Add Shift
               </Button>
             </HStack>
@@ -1297,13 +1421,22 @@ function App() {
         </Box>
 
         <Box
-          bg="#0d1422"
-          borderBottom="1px solid"
-          borderColor="whiteAlpha.100"
+          bg="transparent"
           px={{ base: 4, md: 6 }}
-          py={3}
+          py={4}
         >
-          <Flex maxW="1280px" mx="auto" gap={2} wrap="wrap">
+          <Flex
+            maxW="1280px"
+            mx="auto"
+            gap={2}
+            wrap="wrap"
+            p="6px"
+            bg="rgba(13,25,36,0.82)"
+            border="1px solid rgba(188, 212, 198, 0.08)"
+            borderRadius="full"
+            width="fit-content"
+            boxShadow="0 10px 30px rgba(0,0,0,0.18)"
+          >
             {navItems.map(([mode, label]) => {
               const isActive = view === mode;
               return (
@@ -1311,11 +1444,11 @@ function App() {
                   key={mode}
                   size="sm"
                   borderRadius="full"
-                  bg={isActive ? 'teal.400' : 'transparent'}
-                  color={isActive ? 'gray.900' : 'gray.300'}
+                  bg={isActive ? 'brand.400' : 'transparent'}
+                  color={isActive ? '#08120d' : 'gray.300'}
                   _hover={{
-                    bg: isActive ? 'teal.300' : 'whiteAlpha.100',
-                    color: isActive ? 'gray.900' : 'white',
+                    bg: isActive ? 'brand.300' : 'whiteAlpha.100',
+                    color: isActive ? '#08120d' : 'white',
                   }}
                   onClick={() => setView(mode)}
                 >
@@ -1332,9 +1465,9 @@ function App() {
               <Alert
                 status="info"
                 mb={4}
-                borderRadius="2xl"
-                bg="#132238"
-                border="1px solid rgba(255,255,255,0.08)"
+                borderRadius="3xl"
+                bg="rgba(19, 34, 56, 0.8)"
+                border="1px solid rgba(125, 211, 252, 0.14)"
               >
                 <AlertIcon />
                 <AlertDescription>
@@ -1348,10 +1481,10 @@ function App() {
               <Flex
                 mb={4}
                 p={5}
-                bg="#182133"
-                borderRadius="2xl"
+                bg="rgba(12, 23, 34, 0.9)"
+                borderRadius="3xl"
                 border="1px solid"
-                borderColor="whiteAlpha.100"
+                borderColor="rgba(188, 212, 198, 0.08)"
                 align="center"
                 gap={3}
               >
@@ -1361,7 +1494,7 @@ function App() {
             ) : null}
 
             {cloudError ? (
-              <Alert status="error" mb={4} borderRadius="2xl" bg="red.900" color="red.100">
+              <Alert status="error" mb={4} borderRadius="3xl" bg="red.900" color="red.100">
                 <AlertIcon />
                 <AlertDescription>{cloudError}</AlertDescription>
               </Alert>
@@ -1371,9 +1504,9 @@ function App() {
               <Alert
                 status="info"
                 mb={4}
-                borderRadius="2xl"
-                bg="#132238"
-                border="1px solid rgba(255,255,255,0.08)"
+                borderRadius="3xl"
+                bg="rgba(19, 34, 56, 0.8)"
+                border="1px solid rgba(125, 211, 252, 0.14)"
               >
                 <AlertIcon />
                 <AlertDescription>
@@ -1387,10 +1520,10 @@ function App() {
               <Box
                 mb={4}
                 p={5}
-                bg="#182133"
-                borderRadius="2xl"
+                bg="rgba(12, 23, 34, 0.9)"
+                borderRadius="3xl"
                 border="1px solid"
-                borderColor="whiteAlpha.100"
+                borderColor="rgba(188, 212, 198, 0.08)"
               >
                 <Flex
                   align={{ base: 'flex-start', md: 'center' }}
@@ -1406,7 +1539,9 @@ function App() {
                     </Text>
                   </Box>
                   <Button
-                    colorScheme="teal"
+                    bg="brand.400"
+                    color="#08120d"
+                    _hover={{ bg: 'brand.300' }}
                     onClick={handleImportLocalData}
                     isLoading={isImportingLocalData}
                   >
@@ -1457,10 +1592,10 @@ function App() {
               <Flex
                 mb={4}
                 p={4}
-                bg="#182133"
-                borderRadius="xl"
+                bg="rgba(12, 23, 34, 0.9)"
+                borderRadius="3xl"
                 border="1px solid"
-                borderColor="whiteAlpha.100"
+                borderColor="rgba(188, 212, 198, 0.08)"
                 align={{ base: 'flex-start', md: 'center' }}
                 justify="space-between"
                 direction={{ base: 'column', md: 'row' }}
@@ -1479,8 +1614,6 @@ function App() {
                     value={historyFilterType}
                     onChange={(event) => handleHistoryFilterTypeChange(event.target.value)}
                     maxW={{ base: 'full', md: '180px' }}
-                    bg="#101726"
-                    borderColor="whiteAlpha.200"
                   >
                     <option value="all">All shifts</option>
                     <option value="month">By month</option>
@@ -1493,8 +1626,6 @@ function App() {
                       value={historyFilterValue}
                       onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
                       maxW={{ base: 'full', md: '220px' }}
-                      bg="#101726"
-                      borderColor="whiteAlpha.200"
                     >
                       {monthOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -1509,8 +1640,6 @@ function App() {
                       value={historyFilterValue}
                       onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
                       maxW={{ base: 'full', md: '220px' }}
-                      bg="#101726"
-                      borderColor="whiteAlpha.200"
                     >
                       {weekOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -1525,8 +1654,6 @@ function App() {
                       value={historyFilterValue}
                       onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
                       maxW={{ base: 'full', md: '240px' }}
-                      bg="#101726"
-                      borderColor="whiteAlpha.200"
                     >
                       {payPeriodOptions.map((option) => (
                         <option key={option.value} value={option.value}>

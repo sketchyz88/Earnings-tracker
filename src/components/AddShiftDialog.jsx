@@ -476,7 +476,11 @@ function AddShiftDialog({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <ModalOverlay />
-      <ModalContent bg="#151f30">
+      <ModalContent
+        bg="rgba(11, 21, 31, 0.96)"
+        border="1px solid rgba(188, 212, 198, 0.1)"
+        borderRadius="3xl"
+      >
         <ModalHeader>{editingShift ? 'Edit shift' : 'Add shift'}</ModalHeader>
         <ModalCloseButton />
 
@@ -502,10 +506,10 @@ function AddShiftDialog({
             <Box
               w="full"
               p={4}
-              borderRadius="xl"
+              borderRadius="2xl"
               border="1px solid"
-              borderColor={isDraggingReceipt ? 'purple.300' : 'whiteAlpha.200'}
-              bg={isDraggingReceipt ? 'purple.900' : 'whiteAlpha.50'}
+              borderColor={isDraggingReceipt ? 'brand.300' : 'rgba(188, 212, 198, 0.14)'}
+              bg={isDraggingReceipt ? 'rgba(16, 61, 44, 0.45)' : 'rgba(255,255,255,0.02)'}
               transition="all 0.2s ease"
               onDragOver={handleReceiptDragOver}
               onDragLeave={handleReceiptDragLeave}
@@ -522,7 +526,7 @@ function AddShiftDialog({
                     Receipt scans assume a `5:00 PM` start time and use the top receipt time as
                     your clock-out time.
                   </Text>
-                  <Text fontSize="xs" color={isDraggingReceipt ? 'purple.100' : 'gray.500'} mt={2}>
+                  <Text fontSize="xs" color={isDraggingReceipt ? 'green.100' : 'gray.500'} mt={2}>
                     {isDraggingReceipt
                       ? 'Drop one or more receipt images to scan them now.'
                       : 'Desktop tip: drag and drop one or more receipt photos right into this box.'}
@@ -534,8 +538,9 @@ function AddShiftDialog({
                     onClick={() => cameraInputRef.current?.click()}
                     isLoading={isScanning}
                     loadingText="Scanning"
-                    colorScheme="purple"
-                    variant="outline"
+                    bg="brand.400"
+                    color="#08120d"
+                    _hover={{ bg: 'brand.300' }}
                   >
                     Take Photo
                   </Button>
@@ -543,7 +548,7 @@ function AddShiftDialog({
                     onClick={() => fileInputRef.current?.click()}
                     isDisabled={isScanning}
                     variant="outline"
-                    borderColor="whiteAlpha.300"
+                    borderColor="rgba(188, 212, 198, 0.16)"
                   >
                     Upload Photo(s)
                   </Button>
@@ -555,19 +560,19 @@ function AddShiftDialog({
                   <Text fontSize="sm" color="gray.300" mb={2}>
                     {scanStatus || 'Reading receipt...'}
                   </Text>
-                  <Progress value={scanProgress} size="sm" rounded="full" colorScheme="purple" />
+                  <Progress value={scanProgress} size="sm" rounded="full" colorScheme="green" />
                 </Box>
               ) : null}
 
               {scanError ? (
-                <Alert status="warning" mt={4} borderRadius="lg" bg="orange.900" color="orange.100">
+                <Alert status="warning" mt={4} borderRadius="xl" bg="orange.900" color="orange.100">
                   <AlertIcon />
                   <AlertDescription>{scanError}</AlertDescription>
                 </Alert>
               ) : null}
 
               {scanSummary.length ? (
-                <Alert status="success" mt={4} borderRadius="lg" bg="green.900" color="green.100">
+                <Alert status="success" mt={4} borderRadius="xl" bg="green.900" color="green.100">
                   <AlertIcon />
                   <Box>
                     <AlertTitle mb={1}>Receipt scanned</AlertTitle>
@@ -596,10 +601,10 @@ function AddShiftDialog({
                     <Box
                       key={draft.id}
                       p={3}
-                      borderRadius="xl"
-                      bg="whiteAlpha.100"
+                      borderRadius="2xl"
+                      bg="rgba(255,255,255,0.03)"
                       border="1px solid"
-                      borderColor="whiteAlpha.200"
+                      borderColor="rgba(188, 212, 198, 0.1)"
                     >
                       <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={3}>
                         <Box>

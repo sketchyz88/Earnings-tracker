@@ -35,10 +35,10 @@ function ShiftsByDay({
         textAlign="center"
         py={12}
         px={6}
-        bg="#182133"
-        borderRadius="2xl"
+        bg="rgba(12, 23, 34, 0.9)"
+        borderRadius="3xl"
         border="1px solid"
-        borderColor="whiteAlpha.100"
+        borderColor="rgba(188, 212, 198, 0.08)"
       >
         <Text fontSize="lg" fontWeight="semibold">
           {emptyTitle}
@@ -52,30 +52,31 @@ function ShiftsByDay({
 
   return (
     <Box
-      bg="#182133"
-      borderRadius="2xl"
+      bg="rgba(12, 23, 34, 0.9)"
+      borderRadius="3xl"
       border="1px solid"
-      borderColor="whiteAlpha.100"
+      borderColor="rgba(188, 212, 198, 0.08)"
       overflow="hidden"
+      boxShadow="0 20px 50px rgba(0,0,0,0.18)"
     >
       <Flex
         px={5}
         py={4}
         borderBottom="1px solid"
-        borderColor="whiteAlpha.100"
+        borderColor="rgba(188, 212, 198, 0.08)"
         align="center"
         justify="space-between"
         gap={3}
       >
-        <Heading size="sm">{title}</Heading>
-        <Badge colorScheme="teal" borderRadius="full" px={3} py={1}>
+        <Heading size="sm" letterSpacing="-0.02em">{title}</Heading>
+        <Badge bg="rgba(60,195,135,0.14)" color="green.200" borderRadius="full" px={3} py={1}>
           {badgeLabel || `${sortedShifts.length} ${sortedShifts.length === 1 ? 'shift' : 'shifts'}`}
         </Badge>
       </Flex>
 
       <Box overflowX="auto">
         <Table size="sm">
-          <Thead bg="whiteAlpha.50">
+          <Thead bg="rgba(255,255,255,0.02)">
             <Tr>
               <Th color="gray.400">Date</Th>
               <Th color="gray.400">Shift</Th>
@@ -100,8 +101,8 @@ function ShiftsByDay({
               const basePay = Number(shift.earnings) || 0;
 
               return (
-                <Tr key={shift.id} _hover={{ bg: 'whiteAlpha.50' }}>
-                  <Td fontWeight="medium">{shift.date}</Td>
+                <Tr key={shift.id} _hover={{ bg: 'rgba(255,255,255,0.03)' }}>
+                  <Td fontWeight="semibold">{shift.date}</Td>
                   <Td color="gray.300">
                     {shift.startTime && shift.endTime
                       ? `${shift.startTime} - ${shift.endTime}`
@@ -127,7 +128,7 @@ function ShiftsByDay({
                         icon={<Edit size={14} />}
                         size="xs"
                         variant="ghost"
-                        colorScheme="blue"
+                        colorScheme="green"
                         aria-label="Edit shift"
                         onClick={() => onEdit?.(shift)}
                       />

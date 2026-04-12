@@ -43,7 +43,11 @@ function SettingsDialog({ isOpen, onClose, onSave, settings }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
       <ModalOverlay />
-      <ModalContent bg="#151f30">
+      <ModalContent
+        bg="rgba(11, 21, 31, 0.96)"
+        border="1px solid rgba(188, 212, 198, 0.1)"
+        borderRadius="3xl"
+      >
         <ModalHeader>Settings</ModalHeader>
         <ModalCloseButton />
 
@@ -135,7 +139,7 @@ function SettingsDialog({ isOpen, onClose, onSave, settings }) {
           <Button variant="ghost" mr={3} onClick={onClose}>
             Cancel
           </Button>
-          <Button colorScheme="teal" onClick={handleSave}>
+          <Button bg="brand.400" color="#08120d" _hover={{ bg: 'brand.300' }} onClick={handleSave}>
             Save Settings
           </Button>
         </ModalFooter>

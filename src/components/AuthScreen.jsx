@@ -49,29 +49,41 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
   }
 
   return (
-    <Box minH="100vh" bg="#101726" px={4} py={10}>
+    <Box
+      minH="100vh"
+      px={4}
+      py={10}
+      bg="radial-gradient(circle at top, rgba(31,154,104,0.12), transparent 24%), linear-gradient(180deg, #09131d 0%, #07111a 50%, #050c13 100%)"
+    >
       <Box
         maxW="520px"
         mx="auto"
-        bg="#151f30"
+        bg="rgba(11, 21, 31, 0.92)"
         border="1px solid"
-        borderColor="whiteAlpha.200"
+        borderColor="rgba(188, 212, 198, 0.12)"
         borderRadius="3xl"
         p={{ base: 6, md: 8 }}
-        boxShadow="2xl"
+        boxShadow="0 30px 70px rgba(0,0,0,0.34)"
       >
-        <Text fontSize="sm" color="teal.200" fontWeight="semibold" letterSpacing="0.08em">
-          CLOUD ACCOUNTS
+        <Text fontSize="sm" color="green.200" fontWeight="semibold" letterSpacing="0.14em">
+          SECURE ACCOUNTS
         </Text>
-        <Heading mt={2} size="lg">
+        <Heading mt={2} size="lg" letterSpacing="-0.03em">
           Sign in to your earnings account
         </Heading>
-        <Text mt={3} color="gray.400">
+        <Text mt={3} color="gray.400" lineHeight="tall">
           Each coworker gets a separate login, separate shifts, and their own synced data on phone
           and desktop.
         </Text>
 
-        <Alert status="info" mt={5} borderRadius="xl" bg="#132238" color="blue.100">
+        <Alert
+          status="info"
+          mt={5}
+          borderRadius="2xl"
+          bg="rgba(19, 34, 56, 0.78)"
+          color="blue.100"
+          border="1px solid rgba(125, 211, 252, 0.14)"
+        >
           <AlertIcon />
           <Box>
             <AlertTitle mb={1}>Privacy note</AlertTitle>
@@ -85,16 +97,26 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
         <Stack direction={{ base: 'column', sm: 'row' }} spacing={3} mt={6}>
           <Button
             onClick={() => setMode('signIn')}
-            colorScheme={mode === 'signIn' ? 'teal' : 'gray'}
+            bg={mode === 'signIn' ? 'brand.400' : 'transparent'}
+            color={mode === 'signIn' ? '#08120d' : 'gray.200'}
             variant={mode === 'signIn' ? 'solid' : 'outline'}
+            borderColor="rgba(188, 212, 198, 0.16)"
+            _hover={{
+              bg: mode === 'signIn' ? 'brand.300' : 'whiteAlpha.100',
+            }}
             flex={1}
           >
             Sign In
           </Button>
           <Button
             onClick={() => setMode('signUp')}
-            colorScheme={mode === 'signUp' ? 'teal' : 'gray'}
+            bg={mode === 'signUp' ? 'brand.400' : 'transparent'}
+            color={mode === 'signUp' ? '#08120d' : 'gray.200'}
             variant={mode === 'signUp' ? 'solid' : 'outline'}
+            borderColor="rgba(188, 212, 198, 0.16)"
+            _hover={{
+              bg: mode === 'signUp' ? 'brand.300' : 'whiteAlpha.100',
+            }}
             flex={1}
           >
             Create Account
@@ -102,14 +124,14 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
         </Stack>
 
         {authError ? (
-          <Alert status="error" mt={5} borderRadius="xl" bg="red.900" color="red.100">
+          <Alert status="error" mt={5} borderRadius="2xl" bg="red.900" color="red.100">
             <AlertIcon />
             <AlertDescription>{authError}</AlertDescription>
           </Alert>
         ) : null}
 
         {authMessage ? (
-          <Alert status="success" mt={5} borderRadius="xl" bg="green.900" color="green.100">
+          <Alert status="success" mt={5} borderRadius="2xl" bg="green.900" color="green.100">
             <AlertIcon />
             <Box>
               <AlertTitle mb={1}>Account step complete</AlertTitle>
@@ -155,7 +177,14 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
             />
           </FormControl>
 
-          <Button mt={2} colorScheme="teal" type="submit" isLoading={isSubmitting}>
+          <Button
+            mt={2}
+            bg="brand.400"
+            color="#08120d"
+            _hover={{ bg: 'brand.300' }}
+            type="submit"
+            isLoading={isSubmitting}
+          >
             {mode === 'signIn' ? 'Sign In' : 'Create Account'}
           </Button>
         </Box>

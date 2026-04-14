@@ -19,6 +19,29 @@ npm install
 npm run dev
 ```
 
+## iPhone wrapper in Xcode
+
+This repo now includes an iOS wrapper project at [`ios/TipsCafeWrapper.xcodeproj`](./ios/TipsCafeWrapper.xcodeproj).
+
+What it does:
+
+- opens `https://tips.cafe` inside a native `WKWebView`
+- keeps login cookies so coworkers can stay signed in
+- gives you back, forward, reload, and share controls in the app
+
+To open it:
+
+1. Open `ios/TipsCafeWrapper.xcodeproj` in Xcode.
+2. Pick an iPhone simulator or your connected iPhone.
+3. Set your Apple Developer team under `Signing & Capabilities` if Xcode asks.
+4. Press Run.
+
+Notes:
+
+- the current bundle id is `com.tipscafe.wrapper`
+- you can change the app name and bundle id in Xcode later
+- if you want, we can add a real app icon and splash screen next
+
 ## Turn on cloud accounts
 
 1. Create a Supabase project.

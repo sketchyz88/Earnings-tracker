@@ -53,25 +53,25 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
       minH="100vh"
       px={4}
       py={10}
-      bg="radial-gradient(circle at top, rgba(31,154,104,0.12), transparent 24%), linear-gradient(180deg, #09131d 0%, #07111a 50%, #050c13 100%)"
+      bg="radial-gradient(circle at top, rgba(95,139,109,0.1), transparent 22%), linear-gradient(180deg, #f7f5f1 0%, #f3f1ec 54%, #ece8e1 100%)"
     >
       <Box
         maxW="520px"
         mx="auto"
-        bg="rgba(11, 21, 31, 0.92)"
+        bg="rgba(255, 255, 255, 0.92)"
         border="1px solid"
-        borderColor="rgba(188, 212, 198, 0.12)"
+        borderColor="rgba(22, 33, 43, 0.08)"
         borderRadius="3xl"
         p={{ base: 6, md: 8 }}
-        boxShadow="0 30px 70px rgba(0,0,0,0.34)"
+        boxShadow="0 24px 60px rgba(34, 46, 56, 0.08)"
       >
-        <Text fontSize="sm" color="green.200" fontWeight="semibold" letterSpacing="0.14em">
+        <Text fontSize="sm" color="brand.600" fontWeight="semibold" letterSpacing="0.14em">
           SECURE ACCOUNTS
         </Text>
-        <Heading mt={2} size="lg" letterSpacing="-0.03em">
+        <Heading mt={2} size="lg" letterSpacing="-0.03em" color="#18222c">
           Sign in to your earnings account
         </Heading>
-        <Text mt={3} color="gray.400" lineHeight="tall">
+        <Text mt={3} color="gray.600" lineHeight="tall">
           Each coworker gets a separate login, separate shifts, and their own synced data on phone
           and desktop.
         </Text>
@@ -80,9 +80,9 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
           status="info"
           mt={5}
           borderRadius="2xl"
-          bg="rgba(19, 34, 56, 0.78)"
-          color="blue.100"
-          border="1px solid rgba(125, 211, 252, 0.14)"
+          bg="rgba(250, 251, 249, 0.95)"
+          color="gray.700"
+          border="1px solid rgba(22, 33, 43, 0.06)"
         >
           <AlertIcon />
           <Box>
@@ -97,12 +97,12 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
         <Stack direction={{ base: 'column', sm: 'row' }} spacing={3} mt={6}>
           <Button
             onClick={() => setMode('signIn')}
-            bg={mode === 'signIn' ? 'brand.400' : 'transparent'}
-            color={mode === 'signIn' ? '#08120d' : 'gray.200'}
+            bg={mode === 'signIn' ? 'brand.500' : 'transparent'}
+            color={mode === 'signIn' ? 'white' : 'gray.700'}
             variant={mode === 'signIn' ? 'solid' : 'outline'}
-            borderColor="rgba(188, 212, 198, 0.16)"
+            borderColor="rgba(22, 33, 43, 0.12)"
             _hover={{
-              bg: mode === 'signIn' ? 'brand.300' : 'whiteAlpha.100',
+              bg: mode === 'signIn' ? 'brand.600' : 'blackAlpha.50',
             }}
             flex={1}
           >
@@ -110,12 +110,12 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
           </Button>
           <Button
             onClick={() => setMode('signUp')}
-            bg={mode === 'signUp' ? 'brand.400' : 'transparent'}
-            color={mode === 'signUp' ? '#08120d' : 'gray.200'}
+            bg={mode === 'signUp' ? 'brand.500' : 'transparent'}
+            color={mode === 'signUp' ? 'white' : 'gray.700'}
             variant={mode === 'signUp' ? 'solid' : 'outline'}
-            borderColor="rgba(188, 212, 198, 0.16)"
+            borderColor="rgba(22, 33, 43, 0.12)"
             _hover={{
-              bg: mode === 'signUp' ? 'brand.300' : 'whiteAlpha.100',
+              bg: mode === 'signUp' ? 'brand.600' : 'blackAlpha.50',
             }}
             flex={1}
           >
@@ -179,9 +179,9 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
 
           <Button
             mt={2}
-            bg="brand.400"
-            color="#08120d"
-            _hover={{ bg: 'brand.300' }}
+            bg="brand.500"
+            color="white"
+            _hover={{ bg: 'brand.600' }}
             type="submit"
             isLoading={isSubmitting}
           >

@@ -3,20 +3,20 @@ import { Alert, AlertDescription, AlertIcon, Box, Heading, SimpleGrid, Text } fr
 function InfoCard({ title, body }) {
   return (
     <Box
-      bg="rgba(12, 23, 34, 0.9)"
+      bg="rgba(255, 255, 255, 0.9)"
       borderRadius="3xl"
       border="1px solid"
-      borderColor="rgba(188, 212, 198, 0.08)"
+      borderColor="rgba(22, 33, 43, 0.06)"
       p={{ base: 5, md: 6 }}
-      boxShadow="0 20px 50px rgba(0, 0, 0, 0.18)"
+      boxShadow="0 18px 36px rgba(34, 46, 56, 0.06)"
     >
-      <Text fontSize="xs" color="green.200" fontWeight="semibold" letterSpacing="0.14em" textTransform="uppercase">
+      <Text fontSize="xs" color="brand.600" fontWeight="semibold" letterSpacing="0.14em" textTransform="uppercase">
         Details
       </Text>
-      <Heading mt={3} size="sm" letterSpacing="-0.02em">
+      <Heading mt={3} size="sm" letterSpacing="-0.02em" color="#18222c">
         {title}
       </Heading>
-      <Text mt={3} color="gray.300" lineHeight="tall">
+      <Text mt={3} color="gray.600" lineHeight="tall">
         {body}
       </Text>
     </Box>
@@ -27,20 +27,20 @@ function AboutView() {
   return (
     <Box display="grid" gap={4}>
       <Box
-        bg="linear-gradient(180deg, rgba(14,26,38,0.96) 0%, rgba(9,18,28,0.96) 100%)"
+        bg="rgba(255, 255, 255, 0.92)"
         borderRadius="3xl"
         border="1px solid"
-        borderColor="rgba(188, 212, 198, 0.08)"
+        borderColor="rgba(22, 33, 43, 0.06)"
         p={{ base: 5, md: 6 }}
-        boxShadow="0 24px 60px rgba(0,0,0,0.2)"
+        boxShadow="0 20px 42px rgba(34, 46, 56, 0.07)"
       >
-        <Text fontSize="sm" color="green.200" fontWeight="semibold" letterSpacing="0.14em">
+        <Text fontSize="sm" color="brand.600" fontWeight="semibold" letterSpacing="0.14em">
           ABOUT THIS APP
         </Text>
-        <Heading mt={2} size="lg" letterSpacing="-0.03em">
+        <Heading mt={2} size="lg" letterSpacing="-0.03em" color="#18222c">
           What Earnings Tracker does
         </Heading>
-        <Text mt={3} color="gray.300" lineHeight="tall">
+        <Text mt={3} color="gray.600" lineHeight="tall">
           Earnings Tracker helps servers log shifts, track sales and tips, subtract tip-out,
           calculate take-home pay, and review pay periods over time. You can type shifts in
           manually or scan receipt photos to prefill the details faster.
@@ -50,8 +50,8 @@ function AboutView() {
       <Alert
         status="info"
         borderRadius="3xl"
-        bg="rgba(19, 34, 56, 0.78)"
-        border="1px solid rgba(125, 211, 252, 0.14)"
+        bg="rgba(250, 251, 249, 0.95)"
+        border="1px solid rgba(22, 33, 43, 0.06)"
       >
         <AlertIcon />
         <AlertDescription>

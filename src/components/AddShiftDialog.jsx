@@ -477,8 +477,8 @@ function AddShiftDialog({
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <ModalOverlay />
       <ModalContent
-        bg="rgba(11, 21, 31, 0.96)"
-        border="1px solid rgba(188, 212, 198, 0.1)"
+        bg="rgba(255, 255, 255, 0.96)"
+        border="1px solid rgba(22, 33, 43, 0.08)"
         borderRadius="3xl"
       >
         <ModalHeader>{editingShift ? 'Edit shift' : 'Add shift'}</ModalHeader>
@@ -508,8 +508,8 @@ function AddShiftDialog({
               p={4}
               borderRadius="2xl"
               border="1px solid"
-              borderColor={isDraggingReceipt ? 'brand.300' : 'rgba(188, 212, 198, 0.14)'}
-              bg={isDraggingReceipt ? 'rgba(16, 61, 44, 0.45)' : 'rgba(255,255,255,0.02)'}
+              borderColor={isDraggingReceipt ? 'brand.300' : 'rgba(22, 33, 43, 0.1)'}
+              bg={isDraggingReceipt ? 'rgba(95, 139, 109, 0.08)' : 'rgba(22, 33, 43, 0.02)'}
               transition="all 0.2s ease"
               onDragOver={handleReceiptDragOver}
               onDragLeave={handleReceiptDragLeave}
@@ -538,9 +538,9 @@ function AddShiftDialog({
                     onClick={() => cameraInputRef.current?.click()}
                     isLoading={isScanning}
                     loadingText="Scanning"
-                    bg="brand.400"
-                    color="#08120d"
-                    _hover={{ bg: 'brand.300' }}
+                    bg="brand.500"
+                    color="white"
+                    _hover={{ bg: 'brand.600' }}
                   >
                     Take Photo
                   </Button>
@@ -548,7 +548,7 @@ function AddShiftDialog({
                     onClick={() => fileInputRef.current?.click()}
                     isDisabled={isScanning}
                     variant="outline"
-                    borderColor="rgba(188, 212, 198, 0.16)"
+                    borderColor="rgba(22, 33, 43, 0.12)"
                   >
                     Upload Photo(s)
                   </Button>
@@ -592,7 +592,7 @@ function AddShiftDialog({
                         Review the scanned receipts below, then add them all at once.
                       </Text>
                     </Box>
-                    <Button colorScheme="teal" onClick={handleSaveBatchDrafts}>
+                    <Button bg="brand.500" color="white" _hover={{ bg: 'brand.600' }} onClick={handleSaveBatchDrafts}>
                       Add All Scanned Shifts
                     </Button>
                   </HStack>
@@ -602,9 +602,9 @@ function AddShiftDialog({
                       key={draft.id}
                       p={3}
                       borderRadius="2xl"
-                      bg="rgba(255,255,255,0.03)"
+                      bg="rgba(22, 33, 43, 0.03)"
                       border="1px solid"
-                      borderColor="rgba(188, 212, 198, 0.1)"
+                      borderColor="rgba(22, 33, 43, 0.08)"
                     >
                       <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={3}>
                         <Box>

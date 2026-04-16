@@ -126,10 +126,10 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
         textAlign="center"
         py={12}
         px={6}
-        bg="rgba(12, 23, 34, 0.9)"
+        bg="rgba(255, 255, 255, 0.9)"
         borderRadius="3xl"
         border="1px solid"
-        borderColor="rgba(188, 212, 198, 0.08)"
+        borderColor="rgba(22, 33, 43, 0.06)"
       >
         <Text fontSize="lg" fontWeight="semibold">
           No pay-period data yet
@@ -150,12 +150,12 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
   return (
     <Box display="grid" gap={4}>
       <Box
-        bg="rgba(12, 23, 34, 0.9)"
+        bg="rgba(255, 255, 255, 0.9)"
         borderRadius="3xl"
         border="1px solid"
-        borderColor="rgba(188, 212, 198, 0.08)"
+        borderColor="rgba(22, 33, 43, 0.06)"
         p={{ base: 5, md: 6 }}
-        boxShadow="0 20px 50px rgba(0,0,0,0.18)"
+        boxShadow="0 18px 36px rgba(34, 46, 56, 0.06)"
       >
         <Flex justify="space-between" align={{ base: 'flex-start', md: 'center' }} gap={4} mb={5} direction={{ base: 'column', md: 'row' }}>
           <Box>
@@ -175,9 +175,9 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
 
         <SimpleGrid columns={{ base: 2, md: 4 }} spacing={5} mb={6}>
           <Metric label="Hours" value={currentPeriod.hours.toFixed(1)} accent="#f6ad55" />
-          <Metric label="Gross tips" value={`$${currentPeriod.tips.toFixed(2)}`} accent="#68d391" />
+          <Metric label="Gross tips" value={`$${currentPeriod.tips.toFixed(2)}`} accent="#4f8b68" />
           <Metric label="Tip-out" value={`$${currentPeriod.tipOut.toFixed(2)}`} accent="#fc8181" />
-          <Metric label="Net tips" value={`$${currentPeriod.netTips.toFixed(2)}`} accent="#9ae6b4" />
+          <Metric label="Net tips" value={`$${currentPeriod.netTips.toFixed(2)}`} accent="#3f5d4a" />
         </SimpleGrid>
 
         <SimpleGrid columns={{ base: 2, md: 3 }} spacing={5} mb={6}>
@@ -208,7 +208,7 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
               <Text fontSize="sm" color="gray.400">
                 Net tip goal after tip-out
               </Text>
-              <Text fontSize="sm" fontWeight="semibold" color="green.200">
+              <Text fontSize="sm" fontWeight="semibold" color="brand.700">
                 ${currentPeriod.netTips.toFixed(0)} / ${tipGoal}
               </Text>
             </Flex>
@@ -219,12 +219,12 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
 
       {periods.length > 1 ? (
         <Box
-          bg="rgba(12, 23, 34, 0.9)"
+          bg="rgba(255, 255, 255, 0.9)"
           borderRadius="3xl"
           border="1px solid"
-          borderColor="rgba(188, 212, 198, 0.08)"
+          borderColor="rgba(22, 33, 43, 0.06)"
           p={{ base: 5, md: 6 }}
-          boxShadow="0 20px 50px rgba(0,0,0,0.18)"
+          boxShadow="0 18px 36px rgba(34, 46, 56, 0.06)"
         >
           <Heading size="sm" mb={4}>
             Tip-out and net tip trend
@@ -263,15 +263,15 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
                   gap={3}
                   p={3}
                   borderRadius="xl"
-                  bg={period.key === currentPeriod.key ? 'whiteAlpha.100' : 'transparent'}
+                  bg={period.key === currentPeriod.key ? 'rgba(22, 33, 43, 0.04)' : 'transparent'}
                   border="1px solid"
-                  borderColor="whiteAlpha.100"
+                  borderColor="rgba(22, 33, 43, 0.06)"
                   cursor={onSelectPeriod ? 'pointer' : 'default'}
                   _hover={
                     onSelectPeriod
                       ? {
-                          borderColor: 'teal.300',
-                          bg: 'whiteAlpha.100',
+                          borderColor: 'brand.300',
+                          bg: 'rgba(22, 33, 43, 0.03)',
                         }
                       : undefined
                   }
@@ -285,7 +285,7 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
                     </Text>
                   </Box>
                   <HStack spacing={4}>
-                    <Text color="green.200" fontSize="sm" fontWeight="semibold">
+                    <Text color="brand.700" fontSize="sm" fontWeight="semibold">
                       Net ${period.netTips.toFixed(2)}
                     </Text>
                     <Text color="red.200" fontSize="sm">

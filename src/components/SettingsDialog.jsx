@@ -44,8 +44,8 @@ function SettingsDialog({ isOpen, onClose, onSave, settings }) {
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
       <ModalOverlay />
       <ModalContent
-        bg="rgba(11, 21, 31, 0.96)"
-        border="1px solid rgba(188, 212, 198, 0.1)"
+        bg="rgba(255, 255, 255, 0.96)"
+        border="1px solid rgba(22, 33, 43, 0.08)"
         borderRadius="3xl"
       >
         <ModalHeader>Settings</ModalHeader>
@@ -139,7 +139,7 @@ function SettingsDialog({ isOpen, onClose, onSave, settings }) {
           <Button variant="ghost" mr={3} onClick={onClose}>
             Cancel
           </Button>
-          <Button bg="brand.400" color="#08120d" _hover={{ bg: 'brand.300' }} onClick={handleSave}>
+          <Button bg="brand.500" color="white" _hover={{ bg: 'brand.600' }} onClick={handleSave}>
             Save Settings
           </Button>
         </ModalFooter>

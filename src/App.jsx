@@ -66,28 +66,28 @@ const theme = extendTheme({
   },
   colors: {
     brand: {
-      50: '#eefbf5',
-      100: '#d2f4e4',
-      200: '#a9e8ca',
-      300: '#74d9aa',
-      400: '#3cc387',
-      500: '#1f9a68',
-      600: '#197b53',
-      700: '#155f42',
-      800: '#134c36',
-      900: '#103d2c',
+      50: '#f3f8f5',
+      100: '#dfece4',
+      200: '#c6dccd',
+      300: '#a1c5ad',
+      400: '#7aa88b',
+      500: '#5f8b6d',
+      600: '#4d735b',
+      700: '#3f5d4a',
+      800: '#334b3c',
+      900: '#27392e',
     },
   },
   styles: {
     global: {
       body: {
-        bg: '#07111a',
-        color: '#f5f7f4',
+        bg: '#f3f1ec',
+        color: '#16212b',
         backgroundImage:
-          'radial-gradient(circle at top, rgba(31,154,104,0.16), transparent 28%), linear-gradient(180deg, #09131d 0%, #07111a 42%, #050c13 100%)',
+          'radial-gradient(circle at top, rgba(95,139,109,0.12), transparent 26%), linear-gradient(180deg, #f7f5f1 0%, #f3f1ec 52%, #ece8e1 100%)',
       },
       '*::placeholder': {
-        color: '#7d8c97',
+        color: '#8b8f92',
       },
     },
   },
@@ -102,15 +102,15 @@ const theme = extendTheme({
       variants: {
         outline: {
           field: {
-            bg: '#0d1924',
-            borderColor: 'rgba(188, 212, 198, 0.14)',
-            color: '#f5f7f4',
+            bg: '#fcfbf8',
+            borderColor: 'rgba(22, 33, 43, 0.12)',
+            color: '#16212b',
             _hover: {
-              borderColor: 'rgba(188, 212, 198, 0.24)',
+              borderColor: 'rgba(22, 33, 43, 0.22)',
             },
             _focusVisible: {
-              borderColor: '#74d9aa',
-              boxShadow: '0 0 0 1px #74d9aa',
+              borderColor: '#7aa88b',
+              boxShadow: '0 0 0 1px #7aa88b',
             },
           },
         },
@@ -120,19 +120,19 @@ const theme = extendTheme({
       variants: {
         outline: {
           field: {
-            bg: '#0d1924',
-            borderColor: 'rgba(188, 212, 198, 0.14)',
-            color: '#f5f7f4',
+            bg: '#fcfbf8',
+            borderColor: 'rgba(22, 33, 43, 0.12)',
+            color: '#16212b',
             _hover: {
-              borderColor: 'rgba(188, 212, 198, 0.24)',
+              borderColor: 'rgba(22, 33, 43, 0.22)',
             },
             _focusVisible: {
-              borderColor: '#74d9aa',
-              boxShadow: '0 0 0 1px #74d9aa',
+              borderColor: '#7aa88b',
+              boxShadow: '0 0 0 1px #7aa88b',
             },
           },
           icon: {
-            color: '#9fb3a4',
+            color: '#6f7780',
           },
         },
       },
@@ -141,15 +141,15 @@ const theme = extendTheme({
       variants: {
         outline: {
           field: {
-            bg: '#0d1924',
-            borderColor: 'rgba(188, 212, 198, 0.14)',
-            color: '#f5f7f4',
+            bg: '#fcfbf8',
+            borderColor: 'rgba(22, 33, 43, 0.12)',
+            color: '#16212b',
             _hover: {
-              borderColor: 'rgba(188, 212, 198, 0.24)',
+              borderColor: 'rgba(22, 33, 43, 0.22)',
             },
             _focusVisible: {
-              borderColor: '#74d9aa',
-              boxShadow: '0 0 0 1px #74d9aa',
+              borderColor: '#7aa88b',
+              boxShadow: '0 0 0 1px #7aa88b',
             },
           },
         },
@@ -158,15 +158,15 @@ const theme = extendTheme({
     Textarea: {
       variants: {
         outline: {
-          bg: '#0d1924',
-          borderColor: 'rgba(188, 212, 198, 0.14)',
-          color: '#f5f7f4',
+          bg: '#fcfbf8',
+          borderColor: 'rgba(22, 33, 43, 0.12)',
+          color: '#16212b',
           _hover: {
-            borderColor: 'rgba(188, 212, 198, 0.24)',
+            borderColor: 'rgba(22, 33, 43, 0.22)',
           },
           _focusVisible: {
-            borderColor: '#74d9aa',
-            boxShadow: '0 0 0 1px #74d9aa',
+            borderColor: '#7aa88b',
+            boxShadow: '0 0 0 1px #7aa88b',
           },
         },
       },
@@ -457,22 +457,22 @@ function formatWeekLabel(startDate) {
 function StatCard({ icon: Icon, label, value, helper, accent }) {
   return (
     <Box
-      bg="linear-gradient(180deg, rgba(14,26,38,0.96) 0%, rgba(9,18,28,0.96) 100%)"
+      bg="rgba(255, 255, 255, 0.88)"
       borderRadius="3xl"
       p={{ base: 5, md: 6 }}
       border="1px solid"
-      borderColor="rgba(188, 212, 198, 0.1)"
-      boxShadow="0 20px 50px rgba(0, 0, 0, 0.22)"
+      borderColor="rgba(22, 33, 43, 0.08)"
+      boxShadow="0 18px 40px rgba(34, 46, 56, 0.08)"
     >
       <Flex justify="space-between" align="flex-start" gap={4}>
         <Box>
-          <Text color="gray.400" fontSize="xs" fontWeight="semibold" letterSpacing="0.12em" textTransform="uppercase">
+          <Text color="gray.500" fontSize="xs" fontWeight="semibold" letterSpacing="0.12em" textTransform="uppercase">
             {label}
           </Text>
           <Text mt={3} color={accent} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" lineHeight="shorter">
             {value}
           </Text>
-          <Text mt={2} color="gray.400" fontSize="sm" lineHeight="tall">
+          <Text mt={2} color="gray.600" fontSize="sm" lineHeight="tall">
             {helper}
           </Text>
         </Box>
@@ -480,8 +480,8 @@ function StatCard({ icon: Icon, label, value, helper, accent }) {
         <Flex
           color={accent}
           opacity={0.95}
-          bg="rgba(255,255,255,0.03)"
-          border="1px solid rgba(255,255,255,0.06)"
+          bg="rgba(95, 139, 109, 0.08)"
+          border="1px solid rgba(95, 139, 109, 0.12)"
           borderRadius="2xl"
           p={3}
           align="center"
@@ -1313,12 +1313,12 @@ function App() {
     );
   } else {
     content = (
-      <Box minH="100vh" bg="#101726">
+      <Box minH="100vh" bg="transparent">
         <Box
-          bg="rgba(7, 17, 26, 0.82)"
+          bg="rgba(247, 245, 241, 0.84)"
           backdropFilter="blur(18px)"
           borderBottom="1px solid"
-          borderColor="rgba(188, 212, 198, 0.08)"
+          borderColor="rgba(22, 33, 43, 0.06)"
           px={{ base: 4, md: 6 }}
           py={{ base: 5, md: 6 }}
         >
@@ -1331,24 +1331,24 @@ function App() {
             direction={{ base: 'column', md: 'row' }}
           >
             <Box>
-              <Text fontSize="xs" color="brand.200" fontWeight="semibold" letterSpacing="0.18em" textTransform="uppercase">
+              <Text fontSize="xs" color="brand.600" fontWeight="semibold" letterSpacing="0.18em" textTransform="uppercase">
                 Tips Cafe
               </Text>
-              <Text mt={2} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" letterSpacing="-0.03em">
+              <Text mt={2} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" letterSpacing="-0.03em" color="#18222c">
                 Earnings Tracker
               </Text>
               <HStack spacing={3} mt={1} flexWrap="wrap">
-                <Text color="gray.400" fontSize="sm" maxW="720px" lineHeight="tall">
+                <Text color="gray.600" fontSize="sm" maxW="720px" lineHeight="tall">
                   A cleaner way to log shifts, review checks, and see what you actually keep after tip-out.
                 </Text>
                 <Badge
-                  bg={isCloudMode ? 'rgba(60,195,135,0.14)' : 'rgba(246,173,85,0.14)'}
-                  color={isCloudMode ? 'brand.200' : 'orange.200'}
+                  bg={isCloudMode ? 'rgba(95,139,109,0.12)' : 'rgba(193,147,83,0.12)'}
+                  color={isCloudMode ? 'brand.700' : '#8a6330'}
                   borderRadius="full"
                   px={3}
                   py={1}
                   border="1px solid"
-                  borderColor={isCloudMode ? 'rgba(60,195,135,0.22)' : 'rgba(246,173,85,0.2)'}
+                  borderColor={isCloudMode ? 'rgba(95,139,109,0.16)' : 'rgba(193,147,83,0.18)'}
                 >
                   {isCloudMode ? 'Synced Account' : 'Local Device Mode'}
                 </Badge>
@@ -1358,15 +1358,15 @@ function App() {
             <HStack spacing={2} alignSelf={{ base: 'stretch', md: 'center' }} flexWrap="wrap">
               {isCloudMode ? (
                 <>
-                  <Badge bg="rgba(125, 211, 252, 0.12)" color="blue.100" borderRadius="full" px={3} py={1}>
+                  <Badge bg="rgba(22, 33, 43, 0.06)" color="gray.700" borderRadius="full" px={3} py={1}>
                     {session.user.email}
                   </Badge>
                   <IconButton
                     icon={<LogOut size={16} />}
                     variant="outline"
-                    borderColor="rgba(188, 212, 198, 0.14)"
-                    color="gray.100"
-                    bg="rgba(255,255,255,0.02)"
+                    borderColor="rgba(22, 33, 43, 0.1)"
+                    color="gray.700"
+                    bg="white"
                     aria-label="Sign out"
                     onClick={handleSignOut}
                   />
@@ -1386,8 +1386,8 @@ function App() {
                   </Select>
                   <Button
                     variant="outline"
-                    borderColor="rgba(188, 212, 198, 0.14)"
-                    color="gray.100"
+                    borderColor="rgba(22, 33, 43, 0.1)"
+                    color="gray.700"
                     onClick={handleCreateProfile}
                   >
                     New Profile
@@ -1398,22 +1398,22 @@ function App() {
               <IconButton
                 icon={<Settings size={16} />}
                 variant="outline"
-                borderColor="rgba(188, 212, 198, 0.14)"
-                color="gray.100"
-                bg="rgba(255,255,255,0.02)"
+                borderColor="rgba(22, 33, 43, 0.1)"
+                color="gray.700"
+                bg="white"
                 aria-label="Open settings"
                 onClick={() => setIsSettingsOpen(true)}
               />
               <Button
                 leftIcon={<Download size={16} />}
                 variant="outline"
-                borderColor="rgba(188, 212, 198, 0.14)"
-                color="gray.100"
+                borderColor="rgba(22, 33, 43, 0.1)"
+                color="gray.700"
                 onClick={handleExportCsv}
               >
                 Export CSV
               </Button>
-              <Button leftIcon={<Plus size={16} />} bg="brand.400" color="#08120d" _hover={{ bg: 'brand.300' }} onClick={openNewShiftDialog}>
+              <Button leftIcon={<Plus size={16} />} bg="brand.500" color="white" _hover={{ bg: 'brand.600' }} onClick={openNewShiftDialog}>
                 Add Shift
               </Button>
             </HStack>
@@ -1431,11 +1431,11 @@ function App() {
             gap={2}
             wrap="wrap"
             p="6px"
-            bg="rgba(13,25,36,0.82)"
-            border="1px solid rgba(188, 212, 198, 0.08)"
+            bg="rgba(255,255,255,0.78)"
+            border="1px solid rgba(22, 33, 43, 0.06)"
             borderRadius="full"
             width="fit-content"
-            boxShadow="0 10px 30px rgba(0,0,0,0.18)"
+            boxShadow="0 10px 24px rgba(34, 46, 56, 0.06)"
           >
             {navItems.map(([mode, label]) => {
               const isActive = view === mode;
@@ -1444,11 +1444,11 @@ function App() {
                   key={mode}
                   size="sm"
                   borderRadius="full"
-                  bg={isActive ? 'brand.400' : 'transparent'}
-                  color={isActive ? '#08120d' : 'gray.300'}
+                  bg={isActive ? 'brand.500' : 'transparent'}
+                  color={isActive ? 'white' : 'gray.600'}
                   _hover={{
-                    bg: isActive ? 'brand.300' : 'whiteAlpha.100',
-                    color: isActive ? '#08120d' : 'white',
+                    bg: isActive ? 'brand.600' : 'blackAlpha.50',
+                    color: isActive ? 'white' : 'gray.800',
                   }}
                   onClick={() => setView(mode)}
                 >
@@ -1466,8 +1466,8 @@ function App() {
                 status="info"
                 mb={4}
                 borderRadius="3xl"
-                bg="rgba(19, 34, 56, 0.8)"
-                border="1px solid rgba(125, 211, 252, 0.14)"
+                bg="rgba(255, 255, 255, 0.9)"
+                border="1px solid rgba(22, 33, 43, 0.06)"
               >
                 <AlertIcon />
                 <AlertDescription>
@@ -1481,10 +1481,10 @@ function App() {
               <Flex
                 mb={4}
                 p={5}
-                bg="rgba(12, 23, 34, 0.9)"
+                bg="rgba(255, 255, 255, 0.9)"
                 borderRadius="3xl"
                 border="1px solid"
-                borderColor="rgba(188, 212, 198, 0.08)"
+                borderColor="rgba(22, 33, 43, 0.06)"
                 align="center"
                 gap={3}
               >
@@ -1505,8 +1505,8 @@ function App() {
                 status="info"
                 mb={4}
                 borderRadius="3xl"
-                bg="rgba(19, 34, 56, 0.8)"
-                border="1px solid rgba(125, 211, 252, 0.14)"
+                bg="rgba(255, 255, 255, 0.9)"
+                border="1px solid rgba(22, 33, 43, 0.06)"
               >
                 <AlertIcon />
                 <AlertDescription>
@@ -1520,10 +1520,10 @@ function App() {
               <Box
                 mb={4}
                 p={5}
-                bg="rgba(12, 23, 34, 0.9)"
+                bg="rgba(255, 255, 255, 0.9)"
                 borderRadius="3xl"
                 border="1px solid"
-                borderColor="rgba(188, 212, 198, 0.08)"
+                borderColor="rgba(22, 33, 43, 0.06)"
               >
                 <Flex
                   align={{ base: 'flex-start', md: 'center' }}
@@ -1539,9 +1539,9 @@ function App() {
                     </Text>
                   </Box>
                   <Button
-                    bg="brand.400"
-                    color="#08120d"
-                    _hover={{ bg: 'brand.300' }}
+                    bg="brand.500"
+                    color="white"
+                    _hover={{ bg: 'brand.600' }}
                     onClick={handleImportLocalData}
                     isLoading={isImportingLocalData}
                   >
@@ -1592,10 +1592,10 @@ function App() {
               <Flex
                 mb={4}
                 p={4}
-                bg="rgba(12, 23, 34, 0.9)"
+                bg="rgba(255, 255, 255, 0.9)"
                 borderRadius="3xl"
                 border="1px solid"
-                borderColor="rgba(188, 212, 198, 0.08)"
+                borderColor="rgba(22, 33, 43, 0.06)"
                 align={{ base: 'flex-start', md: 'center' }}
                 justify="space-between"
                 direction={{ base: 'column', md: 'row' }}

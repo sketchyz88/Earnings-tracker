@@ -69,7 +69,7 @@ function ShiftsByDay({
         gap={3}
       >
         <Heading size="sm" letterSpacing="-0.02em" color="#18222c">{title}</Heading>
-        <Badge bg="rgba(95, 139, 109, 0.1)" color="brand.700" borderRadius="full" px={3} py={1}>
+        <Badge bg="rgba(59, 130, 246, 0.1)" color="brand.700" borderRadius="full" px={3} py={1}>
           {badgeLabel || `${sortedShifts.length} ${sortedShifts.length === 1 ? 'shift' : 'shifts'}`}
         </Badge>
       </Flex>

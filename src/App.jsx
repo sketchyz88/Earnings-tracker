@@ -66,25 +66,25 @@ const theme = extendTheme({
   },
   colors: {
     brand: {
-      50: '#f3f8f5',
-      100: '#dfece4',
-      200: '#c6dccd',
-      300: '#a1c5ad',
-      400: '#7aa88b',
-      500: '#5f8b6d',
-      600: '#4d735b',
-      700: '#3f5d4a',
-      800: '#334b3c',
-      900: '#27392e',
+      50: '#eff6ff',
+      100: '#dbeafe',
+      200: '#bfdbfe',
+      300: '#93c5fd',
+      400: '#60a5fa',
+      500: '#3b82f6',
+      600: '#2563eb',
+      700: '#1d4ed8',
+      800: '#1e40af',
+      900: '#1e3a8a',
     },
   },
   styles: {
     global: {
       body: {
-        bg: '#f3f1ec',
-        color: '#16212b',
+        bg: '#f5f7fb',
+        color: '#111827',
         backgroundImage:
-          'radial-gradient(circle at top, rgba(95,139,109,0.12), transparent 26%), linear-gradient(180deg, #f7f5f1 0%, #f3f1ec 52%, #ece8e1 100%)',
+          'radial-gradient(circle at top, rgba(59,130,246,0.1), transparent 24%), linear-gradient(180deg, #fafcff 0%, #f5f7fb 55%, #eef2f7 100%)',
       },
       '*::placeholder': {
         color: '#8b8f92',
@@ -1342,13 +1342,13 @@ function App() {
                   A cleaner way to log shifts, review checks, and see what you actually keep after tip-out.
                 </Text>
                 <Badge
-                  bg={isCloudMode ? 'rgba(95,139,109,0.12)' : 'rgba(193,147,83,0.12)'}
-                  color={isCloudMode ? 'brand.700' : '#8a6330'}
+                  bg={isCloudMode ? 'rgba(59,130,246,0.1)' : 'rgba(245,158,11,0.12)'}
+                  color={isCloudMode ? 'brand.700' : '#92400e'}
                   borderRadius="full"
                   px={3}
                   py={1}
                   border="1px solid"
-                  borderColor={isCloudMode ? 'rgba(95,139,109,0.16)' : 'rgba(193,147,83,0.18)'}
+                  borderColor={isCloudMode ? 'rgba(59,130,246,0.18)' : 'rgba(245,158,11,0.18)'}
                 >
                   {isCloudMode ? 'Synced Account' : 'Local Device Mode'}
                 </Badge>
@@ -1413,7 +1413,7 @@ function App() {
               >
                 Export CSV
               </Button>
-              <Button leftIcon={<Plus size={16} />} bg="brand.500" color="white" _hover={{ bg: 'brand.600' }} onClick={openNewShiftDialog}>
+              <Button leftIcon={<Plus size={16} />} bg="brand.600" color="white" _hover={{ bg: 'brand.700' }} onClick={openNewShiftDialog}>
                 Add Shift
               </Button>
             </HStack>
@@ -1444,10 +1444,10 @@ function App() {
                   key={mode}
                   size="sm"
                   borderRadius="full"
-                  bg={isActive ? 'brand.500' : 'transparent'}
+                  bg={isActive ? 'brand.600' : 'transparent'}
                   color={isActive ? 'white' : 'gray.600'}
                   _hover={{
-                    bg: isActive ? 'brand.600' : 'blackAlpha.50',
+                    bg: isActive ? 'brand.700' : 'blackAlpha.50',
                     color: isActive ? 'white' : 'gray.800',
                   }}
                   onClick={() => setView(mode)}
@@ -1539,9 +1539,9 @@ function App() {
                     </Text>
                   </Box>
                   <Button
-                    bg="brand.500"
+                    bg="brand.600"
                     color="white"
-                    _hover={{ bg: 'brand.600' }}
+                    _hover={{ bg: 'brand.700' }}
                     onClick={handleImportLocalData}
                     isLoading={isImportingLocalData}
                   >

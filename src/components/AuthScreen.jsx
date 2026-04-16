@@ -53,7 +53,7 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
       minH="100vh"
       px={4}
       py={10}
-      bg="radial-gradient(circle at top, rgba(95,139,109,0.1), transparent 22%), linear-gradient(180deg, #f7f5f1 0%, #f3f1ec 54%, #ece8e1 100%)"
+      bg="radial-gradient(circle at top, rgba(59,130,246,0.08), transparent 22%), linear-gradient(180deg, #fafcff 0%, #f5f7fb 56%, #eef2f7 100%)"
     >
       <Box
         maxW="520px"
@@ -97,12 +97,12 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
         <Stack direction={{ base: 'column', sm: 'row' }} spacing={3} mt={6}>
           <Button
             onClick={() => setMode('signIn')}
-            bg={mode === 'signIn' ? 'brand.500' : 'transparent'}
+            bg={mode === 'signIn' ? 'brand.600' : 'transparent'}
             color={mode === 'signIn' ? 'white' : 'gray.700'}
             variant={mode === 'signIn' ? 'solid' : 'outline'}
             borderColor="rgba(22, 33, 43, 0.12)"
             _hover={{
-              bg: mode === 'signIn' ? 'brand.600' : 'blackAlpha.50',
+              bg: mode === 'signIn' ? 'brand.700' : 'blackAlpha.50',
             }}
             flex={1}
           >
@@ -110,12 +110,12 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
           </Button>
           <Button
             onClick={() => setMode('signUp')}
-            bg={mode === 'signUp' ? 'brand.500' : 'transparent'}
+            bg={mode === 'signUp' ? 'brand.600' : 'transparent'}
             color={mode === 'signUp' ? 'white' : 'gray.700'}
             variant={mode === 'signUp' ? 'solid' : 'outline'}
             borderColor="rgba(22, 33, 43, 0.12)"
             _hover={{
-              bg: mode === 'signUp' ? 'brand.600' : 'blackAlpha.50',
+              bg: mode === 'signUp' ? 'brand.700' : 'blackAlpha.50',
             }}
             flex={1}
           >
@@ -179,9 +179,9 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
 
           <Button
             mt={2}
-            bg="brand.500"
+            bg="brand.600"
             color="white"
-            _hover={{ bg: 'brand.600' }}
+            _hover={{ bg: 'brand.700' }}
             type="submit"
             isLoading={isSubmitting}
           >

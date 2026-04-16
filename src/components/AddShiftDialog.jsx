@@ -509,7 +509,7 @@ function AddShiftDialog({
               borderRadius="2xl"
               border="1px solid"
               borderColor={isDraggingReceipt ? 'brand.300' : 'rgba(22, 33, 43, 0.1)'}
-              bg={isDraggingReceipt ? 'rgba(95, 139, 109, 0.08)' : 'rgba(22, 33, 43, 0.02)'}
+              bg={isDraggingReceipt ? 'rgba(59, 130, 246, 0.08)' : 'rgba(22, 33, 43, 0.02)'}
               transition="all 0.2s ease"
               onDragOver={handleReceiptDragOver}
               onDragLeave={handleReceiptDragLeave}
@@ -538,9 +538,9 @@ function AddShiftDialog({
                     onClick={() => cameraInputRef.current?.click()}
                     isLoading={isScanning}
                     loadingText="Scanning"
-                    bg="brand.500"
+                    bg="brand.600"
                     color="white"
-                    _hover={{ bg: 'brand.600' }}
+                    _hover={{ bg: 'brand.700' }}
                   >
                     Take Photo
                   </Button>
@@ -592,7 +592,7 @@ function AddShiftDialog({
                         Review the scanned receipts below, then add them all at once.
                       </Text>
                     </Box>
-                    <Button bg="brand.500" color="white" _hover={{ bg: 'brand.600' }} onClick={handleSaveBatchDrafts}>
+                    <Button bg="brand.600" color="white" _hover={{ bg: 'brand.700' }} onClick={handleSaveBatchDrafts}>
                       Add All Scanned Shifts
                     </Button>
                   </HStack>

@@ -175,9 +175,9 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
 
         <SimpleGrid columns={{ base: 2, md: 4 }} spacing={5} mb={6}>
           <Metric label="Hours" value={currentPeriod.hours.toFixed(1)} accent="#f6ad55" />
-          <Metric label="Gross tips" value={`$${currentPeriod.tips.toFixed(2)}`} accent="#4f8b68" />
+          <Metric label="Gross tips" value={`$${currentPeriod.tips.toFixed(2)}`} accent="#2563eb" />
           <Metric label="Tip-out" value={`$${currentPeriod.tipOut.toFixed(2)}`} accent="#fc8181" />
-          <Metric label="Net tips" value={`$${currentPeriod.netTips.toFixed(2)}`} accent="#3f5d4a" />
+          <Metric label="Net tips" value={`$${currentPeriod.netTips.toFixed(2)}`} accent="#1e40af" />
         </SimpleGrid>
 
         <SimpleGrid columns={{ base: 2, md: 3 }} spacing={5} mb={6}>

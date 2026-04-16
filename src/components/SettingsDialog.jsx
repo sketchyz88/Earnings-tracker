@@ -139,7 +139,7 @@ function SettingsDialog({ isOpen, onClose, onSave, settings }) {
           <Button variant="ghost" mr={3} onClick={onClose}>
             Cancel
           </Button>
-          <Button bg="brand.500" color="white" _hover={{ bg: 'brand.600' }} onClick={handleSave}>
+          <Button bg="brand.600" color="white" _hover={{ bg: 'brand.700' }} onClick={handleSave}>
             Save Settings
           </Button>
         </ModalFooter>

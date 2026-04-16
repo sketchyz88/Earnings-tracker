@@ -71,7 +71,7 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
         <Heading mt={2} size="lg" letterSpacing="-0.03em" color="#18222c">
           Sign in to your earnings account
         </Heading>
-        <Text mt={3} color="gray.600" lineHeight="tall">
+        <Text mt={3} color="gray.800" lineHeight="tall">
           Each coworker gets a separate login, separate shifts, and their own synced data on phone
           and desktop.
         </Text>
@@ -98,7 +98,7 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
           <Button
             onClick={() => setMode('signIn')}
             bg={mode === 'signIn' ? 'brand.600' : 'transparent'}
-            color={mode === 'signIn' ? 'white' : 'gray.700'}
+            color={mode === 'signIn' ? 'white' : 'gray.900'}
             variant={mode === 'signIn' ? 'solid' : 'outline'}
             borderColor="rgba(22, 33, 43, 0.12)"
             _hover={{
@@ -111,7 +111,7 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
           <Button
             onClick={() => setMode('signUp')}
             bg={mode === 'signUp' ? 'brand.600' : 'transparent'}
-            color={mode === 'signUp' ? 'white' : 'gray.700'}
+            color={mode === 'signUp' ? 'white' : 'gray.900'}
             variant={mode === 'signUp' ? 'solid' : 'outline'}
             borderColor="rgba(22, 33, 43, 0.12)"
             _hover={{

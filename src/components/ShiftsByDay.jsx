@@ -43,7 +43,7 @@ function ShiftsByDay({
         <Text fontSize="lg" fontWeight="semibold">
           {emptyTitle}
         </Text>
-        <Text mt={2} color="gray.400">
+        <Text mt={2} color="gray.700">
           {emptySubtitle}
         </Text>
       </Box>
@@ -103,7 +103,7 @@ function ShiftsByDay({
               return (
                 <Tr key={shift.id} _hover={{ bg: 'rgba(22, 33, 43, 0.03)' }}>
                   <Td fontWeight="semibold">{shift.date}</Td>
-                  <Td color="gray.300">
+                  <Td color="gray.800">
                     {shift.startTime && shift.endTime
                       ? `${shift.startTime} - ${shift.endTime}`
                       : 'Manual entry'}

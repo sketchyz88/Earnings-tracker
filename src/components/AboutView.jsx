@@ -16,7 +16,7 @@ function InfoCard({ title, body }) {
       <Heading mt={3} size="sm" letterSpacing="-0.02em" color="#18222c">
         {title}
       </Heading>
-      <Text mt={3} color="gray.600" lineHeight="tall">
+      <Text mt={3} color="gray.800" lineHeight="tall">
         {body}
       </Text>
     </Box>
@@ -40,7 +40,7 @@ function AboutView() {
         <Heading mt={2} size="lg" letterSpacing="-0.03em" color="#18222c">
           What Earnings Tracker does
         </Heading>
-        <Text mt={3} color="gray.600" lineHeight="tall">
+        <Text mt={3} color="gray.800" lineHeight="tall">
           Earnings Tracker helps servers log shifts, track sales and tips, subtract tip-out,
           calculate take-home pay, and review pay periods over time. You can type shifts in
           manually or scan receipt photos to prefill the details faster.

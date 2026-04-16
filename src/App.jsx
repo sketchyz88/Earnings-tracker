@@ -466,13 +466,13 @@ function StatCard({ icon: Icon, label, value, helper, accent }) {
     >
       <Flex justify="space-between" align="flex-start" gap={4}>
         <Box>
-          <Text color="gray.500" fontSize="xs" fontWeight="semibold" letterSpacing="0.12em" textTransform="uppercase">
+          <Text color="gray.700" fontSize="xs" fontWeight="semibold" letterSpacing="0.12em" textTransform="uppercase">
             {label}
           </Text>
           <Text mt={3} color={accent} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" lineHeight="shorter">
             {value}
           </Text>
-          <Text mt={2} color="gray.600" fontSize="sm" lineHeight="tall">
+          <Text mt={2} color="gray.800" fontSize="sm" lineHeight="tall">
             {helper}
           </Text>
         </Box>
@@ -1338,7 +1338,7 @@ function App() {
                 Earnings Tracker
               </Text>
               <HStack spacing={3} mt={1} flexWrap="wrap">
-                <Text color="gray.600" fontSize="sm" maxW="720px" lineHeight="tall">
+                <Text color="gray.800" fontSize="sm" maxW="720px" lineHeight="tall">
                   A cleaner way to log shifts, review checks, and see what you actually keep after tip-out.
                 </Text>
                 <Badge
@@ -1358,14 +1358,14 @@ function App() {
             <HStack spacing={2} alignSelf={{ base: 'stretch', md: 'center' }} flexWrap="wrap">
               {isCloudMode ? (
                 <>
-                  <Badge bg="rgba(22, 33, 43, 0.06)" color="gray.700" borderRadius="full" px={3} py={1}>
+                  <Badge bg="rgba(22, 33, 43, 0.06)" color="gray.800" borderRadius="full" px={3} py={1}>
                     {session.user.email}
                   </Badge>
                   <IconButton
                     icon={<LogOut size={16} />}
                     variant="outline"
                     borderColor="rgba(22, 33, 43, 0.1)"
-                    color="gray.700"
+                    color="gray.900"
                     bg="white"
                     aria-label="Sign out"
                     onClick={handleSignOut}
@@ -1387,7 +1387,7 @@ function App() {
                   <Button
                     variant="outline"
                     borderColor="rgba(22, 33, 43, 0.1)"
-                    color="gray.700"
+                    color="gray.900"
                     onClick={handleCreateProfile}
                   >
                     New Profile
@@ -1399,7 +1399,7 @@ function App() {
                 icon={<Settings size={16} />}
                 variant="outline"
                 borderColor="rgba(22, 33, 43, 0.1)"
-                color="gray.700"
+                color="gray.900"
                 bg="white"
                 aria-label="Open settings"
                 onClick={() => setIsSettingsOpen(true)}
@@ -1408,7 +1408,7 @@ function App() {
                 leftIcon={<Download size={16} />}
                 variant="outline"
                 borderColor="rgba(22, 33, 43, 0.1)"
-                color="gray.700"
+                color="gray.900"
                 onClick={handleExportCsv}
               >
                 Export CSV
@@ -1445,10 +1445,10 @@ function App() {
                   size="sm"
                   borderRadius="full"
                   bg={isActive ? 'brand.600' : 'transparent'}
-                  color={isActive ? 'white' : 'gray.600'}
+                  color={isActive ? 'white' : 'gray.800'}
                   _hover={{
                     bg: isActive ? 'brand.700' : 'blackAlpha.50',
-                    color: isActive ? 'white' : 'gray.800',
+                    color: isActive ? 'white' : 'gray.900',
                   }}
                   onClick={() => setView(mode)}
                 >

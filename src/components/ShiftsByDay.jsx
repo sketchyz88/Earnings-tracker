@@ -16,6 +16,7 @@ import {
 import { Edit, Trash2 } from 'lucide-react';
 
 function ShiftsByDay({
+  isDarkMode = false,
   shifts,
   settings,
   onEdit,
@@ -35,7 +36,7 @@ function ShiftsByDay({
         textAlign="center"
         py={12}
         px={6}
-        bg="rgba(255, 255, 255, 0.9)"
+        bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
         borderRadius="3xl"
         border="1px solid"
         borderColor="rgba(22, 33, 43, 0.06)"
@@ -52,7 +53,7 @@ function ShiftsByDay({
 
   return (
     <Box
-      bg="rgba(255, 255, 255, 0.9)"
+      bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
       borderRadius="3xl"
       border="1px solid"
       borderColor="rgba(22, 33, 43, 0.06)"
@@ -68,7 +69,7 @@ function ShiftsByDay({
         justify="space-between"
         gap={3}
       >
-        <Heading size="sm" letterSpacing="-0.02em" color="#18222c">{title}</Heading>
+        <Heading size="sm" letterSpacing="-0.02em" color={isDarkMode ? 'white' : '#18222c'}>{title}</Heading>
         <Badge bg="rgba(59, 130, 246, 0.1)" color="brand.700" borderRadius="full" px={3} py={1}>
           {badgeLabel || `${sortedShifts.length} ${sortedShifts.length === 1 ? 'shift' : 'shifts'}`}
         </Badge>
@@ -103,7 +104,7 @@ function ShiftsByDay({
               return (
                 <Tr key={shift.id} _hover={{ bg: 'rgba(22, 33, 43, 0.03)' }}>
                   <Td fontWeight="semibold">{shift.date}</Td>
-                  <Td color="gray.800">
+                  <Td color={isDarkMode ? 'gray.200' : 'gray.800'}>
                     {shift.startTime && shift.endTime
                       ? `${shift.startTime} - ${shift.endTime}`
                       : 'Manual entry'}

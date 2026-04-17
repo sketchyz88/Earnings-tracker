@@ -23,24 +23,24 @@ function InfoCard({ title, body }) {
   );
 }
 
-function AboutView() {
+function AboutView({ isDarkMode = false }) {
   return (
     <Box display="grid" gap={4}>
       <Box
-        bg="rgba(255, 255, 255, 0.92)"
+        bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.92)'}
         borderRadius="3xl"
         border="1px solid"
-        borderColor="rgba(22, 33, 43, 0.06)"
+        borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}
         p={{ base: 5, md: 6 }}
         boxShadow="0 20px 42px rgba(34, 46, 56, 0.07)"
       >
         <Text fontSize="sm" color="brand.600" fontWeight="semibold" letterSpacing="0.14em">
           ABOUT THIS APP
         </Text>
-        <Heading mt={2} size="lg" letterSpacing="-0.03em" color="#18222c">
+        <Heading mt={2} size="lg" letterSpacing="-0.03em" color={isDarkMode ? 'white' : '#18222c'}>
           What Earnings Tracker does
         </Heading>
-        <Text mt={3} color="gray.800" lineHeight="tall">
+        <Text mt={3} color={isDarkMode ? 'gray.300' : 'gray.800'} lineHeight="tall">
           Earnings Tracker helps servers log shifts, track sales and tips, subtract tip-out,
           calculate take-home pay, and review pay periods over time. You can type shifts in
           manually or scan receipt photos to prefill the details faster.

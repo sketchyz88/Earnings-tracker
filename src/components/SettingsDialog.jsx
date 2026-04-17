@@ -16,7 +16,7 @@ import {
   VStack,
 } from '@chakra-ui/react';
 
-function SettingsDialog({ isOpen, onClose, onSave, settings }) {
+function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings }) {
   const [form, setForm] = useState({
     hourlyRate: 15,
     tipOutRate: 4.5,
@@ -44,8 +44,8 @@ function SettingsDialog({ isOpen, onClose, onSave, settings }) {
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
       <ModalOverlay />
       <ModalContent
-        bg="rgba(255, 255, 255, 0.96)"
-        border="1px solid rgba(22, 33, 43, 0.08)"
+        bg={isDarkMode ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.96)'}
+        border={`1px solid ${isDarkMode ? 'rgba(148, 163, 184, 0.14)' : 'rgba(22, 33, 43, 0.08)'}`}
         borderRadius="3xl"
       >
         <ModalHeader>Settings</ModalHeader>

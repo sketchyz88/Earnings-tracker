@@ -113,7 +113,7 @@ function Metric({ label, value, accent = 'white' }) {
   );
 }
 
-function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
+function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod }) {
   const periods = getPeriods(shifts || [], settings?.hourlyRate || 0, settings?.tipOutRate || 0);
   const hoursGoal = settings?.hoursGoal || 80;
   const tipGoal = settings?.tipGoal || 100;
@@ -126,7 +126,7 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
         textAlign="center"
         py={12}
         px={6}
-        bg="rgba(255, 255, 255, 0.9)"
+        bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
         borderRadius="3xl"
         border="1px solid"
         borderColor="rgba(22, 33, 43, 0.06)"
@@ -150,7 +150,7 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
   return (
     <Box display="grid" gap={4}>
       <Box
-        bg="rgba(255, 255, 255, 0.9)"
+        bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
         borderRadius="3xl"
         border="1px solid"
         borderColor="rgba(22, 33, 43, 0.06)"
@@ -219,7 +219,7 @@ function BiWeeklyHours({ shifts, settings, onSelectPeriod }) {
 
       {periods.length > 1 ? (
         <Box
-          bg="rgba(255, 255, 255, 0.9)"
+          bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
           borderRadius="3xl"
           border="1px solid"
           borderColor="rgba(22, 33, 43, 0.06)"

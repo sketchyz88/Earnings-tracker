@@ -15,7 +15,7 @@ import {
   Text,
 } from '@chakra-ui/react';
 
-function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }) {
+function AuthScreen({ isDarkMode = false, isSubmitting, authError, authMessage, onSignIn, onSignUp }) {
   const [mode, setMode] = useState('signIn');
   const [form, setForm] = useState({
     displayName: '',
@@ -53,14 +53,18 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
       minH="100vh"
       px={4}
       py={10}
-      bg="radial-gradient(circle at top, rgba(59,130,246,0.08), transparent 22%), linear-gradient(180deg, #fafcff 0%, #f5f7fb 56%, #eef2f7 100%)"
+      bg={
+        isDarkMode
+          ? 'radial-gradient(circle at top, rgba(59,130,246,0.16), transparent 22%), linear-gradient(180deg, #111827 0%, #0f172a 56%, #020617 100%)'
+          : 'radial-gradient(circle at top, rgba(59,130,246,0.08), transparent 22%), linear-gradient(180deg, #fafcff 0%, #f5f7fb 56%, #eef2f7 100%)'
+      }
     >
       <Box
         maxW="520px"
         mx="auto"
-        bg="rgba(255, 255, 255, 0.92)"
+        bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.92)'}
         border="1px solid"
-        borderColor="rgba(22, 33, 43, 0.08)"
+        borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.14)' : 'rgba(22, 33, 43, 0.08)'}
         borderRadius="3xl"
         p={{ base: 6, md: 8 }}
         boxShadow="0 24px 60px rgba(34, 46, 56, 0.08)"
@@ -68,10 +72,10 @@ function AuthScreen({ isSubmitting, authError, authMessage, onSignIn, onSignUp }
         <Text fontSize="sm" color="brand.600" fontWeight="semibold" letterSpacing="0.14em">
           SECURE ACCOUNTS
         </Text>
-        <Heading mt={2} size="lg" letterSpacing="-0.03em" color="#18222c">
+        <Heading mt={2} size="lg" letterSpacing="-0.03em" color={isDarkMode ? 'white' : '#18222c'}>
           Sign in to your earnings account
         </Heading>
-        <Text mt={3} color="gray.800" lineHeight="tall">
+        <Text mt={3} color={isDarkMode ? 'gray.300' : 'gray.800'} lineHeight="tall">
           Each coworker gets a separate login, separate shifts, and their own synced data on phone
           and desktop.
         </Text>

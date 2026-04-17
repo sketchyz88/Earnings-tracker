@@ -197,6 +197,7 @@ function createShiftFromParsedReceipt(parsed, fallbackForm = createEmptyForm()) 
 }
 
 function AddShiftDialog({
+  isDarkMode = false,
   isOpen,
   onClose,
   onSave,
@@ -477,8 +478,8 @@ function AddShiftDialog({
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
       <ModalOverlay />
       <ModalContent
-        bg="rgba(255, 255, 255, 0.96)"
-        border="1px solid rgba(22, 33, 43, 0.08)"
+        bg={isDarkMode ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.96)'}
+        border={`1px solid ${isDarkMode ? 'rgba(148, 163, 184, 0.14)' : 'rgba(22, 33, 43, 0.08)'}`}
         borderRadius="3xl"
       >
         <ModalHeader>{editingShift ? 'Edit shift' : 'Add shift'}</ModalHeader>

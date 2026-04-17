@@ -19,8 +19,10 @@ import {
 import {
   Download,
   LogOut,
+  Moon,
   Plus,
   Settings,
+  Sun,
   Target,
   TrendingDown,
   TrendingUp,
@@ -41,6 +43,7 @@ const STORAGE_KEYS = {
   activeProfileId: 'earnings_tracker_active_profile_id',
   legacyShifts: 'earnings_tracker_shifts',
   legacySettings: 'earnings_tracker_settings',
+  uiMode: 'earnings_tracker_ui_mode',
 };
 
 const DEFAULT_SETTINGS = {
@@ -55,9 +58,12 @@ const DEFAULT_PROFILE = {
   name: 'My Profile',
 };
 
-const theme = extendTheme({
+function createTheme(uiMode) {
+  const isDarkMode = uiMode === 'dark';
+
+  return extendTheme({
   config: {
-    initialColorMode: 'dark',
+    initialColorMode: isDarkMode ? 'dark' : 'light',
     useSystemColorMode: false,
   },
   fonts: {
@@ -81,10 +87,12 @@ const theme = extendTheme({
   styles: {
     global: {
       body: {
-        bg: '#f5f7fb',
-        color: '#111827',
+        bg: isDarkMode ? '#0f172a' : '#f5f7fb',
+        color: isDarkMode ? '#e5e7eb' : '#111827',
         backgroundImage:
-          'radial-gradient(circle at top, rgba(59,130,246,0.1), transparent 24%), linear-gradient(180deg, #fafcff 0%, #f5f7fb 55%, #eef2f7 100%)',
+          isDarkMode
+            ? 'radial-gradient(circle at top, rgba(59,130,246,0.16), transparent 24%), linear-gradient(180deg, #111827 0%, #0f172a 55%, #020617 100%)'
+            : 'radial-gradient(circle at top, rgba(59,130,246,0.1), transparent 24%), linear-gradient(180deg, #fafcff 0%, #f5f7fb 55%, #eef2f7 100%)',
       },
       '*::placeholder': {
         color: '#8b8f92',
@@ -102,11 +110,11 @@ const theme = extendTheme({
       variants: {
         outline: {
           field: {
-            bg: '#fcfbf8',
-            borderColor: 'rgba(22, 33, 43, 0.12)',
-            color: '#16212b',
+            bg: isDarkMode ? '#111827' : '#fcfbf8',
+            borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.18)' : 'rgba(22, 33, 43, 0.12)',
+            color: isDarkMode ? '#e5e7eb' : '#16212b',
             _hover: {
-              borderColor: 'rgba(22, 33, 43, 0.22)',
+              borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.28)' : 'rgba(22, 33, 43, 0.22)',
             },
             _focusVisible: {
               borderColor: '#7aa88b',
@@ -120,11 +128,11 @@ const theme = extendTheme({
       variants: {
         outline: {
           field: {
-            bg: '#fcfbf8',
-            borderColor: 'rgba(22, 33, 43, 0.12)',
-            color: '#16212b',
+            bg: isDarkMode ? '#111827' : '#fcfbf8',
+            borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.18)' : 'rgba(22, 33, 43, 0.12)',
+            color: isDarkMode ? '#e5e7eb' : '#16212b',
             _hover: {
-              borderColor: 'rgba(22, 33, 43, 0.22)',
+              borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.28)' : 'rgba(22, 33, 43, 0.22)',
             },
             _focusVisible: {
               borderColor: '#7aa88b',
@@ -132,7 +140,7 @@ const theme = extendTheme({
             },
           },
           icon: {
-            color: '#6f7780',
+            color: isDarkMode ? '#94a3b8' : '#6f7780',
           },
         },
       },
@@ -141,11 +149,11 @@ const theme = extendTheme({
       variants: {
         outline: {
           field: {
-            bg: '#fcfbf8',
-            borderColor: 'rgba(22, 33, 43, 0.12)',
-            color: '#16212b',
+            bg: isDarkMode ? '#111827' : '#fcfbf8',
+            borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.18)' : 'rgba(22, 33, 43, 0.12)',
+            color: isDarkMode ? '#e5e7eb' : '#16212b',
             _hover: {
-              borderColor: 'rgba(22, 33, 43, 0.22)',
+              borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.28)' : 'rgba(22, 33, 43, 0.22)',
             },
             _focusVisible: {
               borderColor: '#7aa88b',
@@ -158,11 +166,11 @@ const theme = extendTheme({
     Textarea: {
       variants: {
         outline: {
-          bg: '#fcfbf8',
-          borderColor: 'rgba(22, 33, 43, 0.12)',
-          color: '#16212b',
+          bg: isDarkMode ? '#111827' : '#fcfbf8',
+          borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.18)' : 'rgba(22, 33, 43, 0.12)',
+          color: isDarkMode ? '#e5e7eb' : '#16212b',
           _hover: {
-            borderColor: 'rgba(22, 33, 43, 0.22)',
+            borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.28)' : 'rgba(22, 33, 43, 0.22)',
           },
           _focusVisible: {
             borderColor: '#7aa88b',
@@ -173,6 +181,16 @@ const theme = extendTheme({
     },
   },
 });
+}
+
+function loadUiMode() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.uiMode);
+    return saved === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
 
 function loadShifts() {
   try {
@@ -524,6 +542,7 @@ async function fetchCloudData(user) {
 }
 
 function App() {
+  const [uiMode, setUiMode] = useState(loadUiMode);
   const initialLocalStore = loadProfileStore();
   const [profileStore, setProfileStore] = useState(initialLocalStore);
   const [activeProfileId, setActiveProfileId] = useState(() =>
@@ -546,6 +565,16 @@ function App() {
   const [editingShift, setEditingShift] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const isDarkMode = uiMode === 'dark';
+  const theme = useMemo(() => createTheme(uiMode), [uiMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.uiMode, uiMode);
+    } catch {
+      // ignore persistence errors
+    }
+  }, [uiMode]);
 
   useEffect(() => {
     saveProfileStore(profileStore);
@@ -1304,6 +1333,7 @@ function App() {
   } else if (isSupabaseConfigured && !session?.user) {
     content = (
       <AuthScreen
+        isDarkMode={isDarkMode}
         isSubmitting={isAuthSubmitting}
         authError={authError}
         authMessage={authMessage}
@@ -1315,10 +1345,10 @@ function App() {
     content = (
       <Box minH="100vh" bg="transparent">
         <Box
-          bg="rgba(247, 245, 241, 0.84)"
+          bg={isDarkMode ? 'rgba(15, 23, 42, 0.84)' : 'rgba(247, 245, 241, 0.84)'}
           backdropFilter="blur(18px)"
           borderBottom="1px solid"
-          borderColor="rgba(22, 33, 43, 0.06)"
+          borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}
           px={{ base: 4, md: 6 }}
           py={{ base: 5, md: 6 }}
         >
@@ -1334,11 +1364,11 @@ function App() {
               <Text fontSize="xs" color="brand.600" fontWeight="semibold" letterSpacing="0.18em" textTransform="uppercase">
                 Tips Cafe
               </Text>
-              <Text mt={2} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" letterSpacing="-0.03em" color="#18222c">
+              <Text mt={2} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" letterSpacing="-0.03em" color={isDarkMode ? 'white' : '#18222c'}>
                 Earnings Tracker
               </Text>
               <HStack spacing={3} mt={1} flexWrap="wrap">
-                <Text color="gray.800" fontSize="sm" maxW="720px" lineHeight="tall">
+                <Text color={isDarkMode ? 'gray.300' : 'gray.800'} fontSize="sm" maxW="720px" lineHeight="tall">
                   A cleaner way to log shifts, review checks, and see what you actually keep after tip-out.
                 </Text>
                 <Badge
@@ -1358,15 +1388,21 @@ function App() {
             <HStack spacing={2} alignSelf={{ base: 'stretch', md: 'center' }} flexWrap="wrap">
               {isCloudMode ? (
                 <>
-                  <Badge bg="rgba(22, 33, 43, 0.06)" color="gray.800" borderRadius="full" px={3} py={1}>
+                  <Badge
+                    bg={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}
+                    color={isDarkMode ? 'gray.100' : 'gray.800'}
+                    borderRadius="full"
+                    px={3}
+                    py={1}
+                  >
                     {session.user.email}
                   </Badge>
                   <IconButton
                     icon={<LogOut size={16} />}
                     variant="outline"
-                    borderColor="rgba(22, 33, 43, 0.1)"
-                    color="gray.900"
-                    bg="white"
+                    borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
+                    color={isDarkMode ? 'gray.100' : 'gray.900'}
+                    bg={isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'white'}
                     aria-label="Sign out"
                     onClick={handleSignOut}
                   />
@@ -1386,8 +1422,8 @@ function App() {
                   </Select>
                   <Button
                     variant="outline"
-                    borderColor="rgba(22, 33, 43, 0.1)"
-                    color="gray.900"
+                    borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
+                    color={isDarkMode ? 'gray.100' : 'gray.900'}
                     onClick={handleCreateProfile}
                   >
                     New Profile
@@ -1396,19 +1432,28 @@ function App() {
               )}
 
               <IconButton
+                icon={isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+                variant="outline"
+                borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
+                color={isDarkMode ? 'gray.100' : 'gray.900'}
+                bg={isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'white'}
+                aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                onClick={() => setUiMode((current) => (current === 'dark' ? 'light' : 'dark'))}
+              />
+              <IconButton
                 icon={<Settings size={16} />}
                 variant="outline"
-                borderColor="rgba(22, 33, 43, 0.1)"
-                color="gray.900"
-                bg="white"
+                borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
+                color={isDarkMode ? 'gray.100' : 'gray.900'}
+                bg={isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'white'}
                 aria-label="Open settings"
                 onClick={() => setIsSettingsOpen(true)}
               />
               <Button
                 leftIcon={<Download size={16} />}
                 variant="outline"
-                borderColor="rgba(22, 33, 43, 0.1)"
-                color="gray.900"
+                borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
+                color={isDarkMode ? 'gray.100' : 'gray.900'}
                 onClick={handleExportCsv}
               >
                 Export CSV
@@ -1431,8 +1476,8 @@ function App() {
             gap={2}
             wrap="wrap"
             p="6px"
-            bg="rgba(255,255,255,0.78)"
-            border="1px solid rgba(22, 33, 43, 0.06)"
+            bg={isDarkMode ? 'rgba(15, 23, 42, 0.82)' : 'rgba(255,255,255,0.78)'}
+            border={`1px solid ${isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}`}
             borderRadius="full"
             width="fit-content"
             boxShadow="0 10px 24px rgba(34, 46, 56, 0.06)"
@@ -1445,10 +1490,10 @@ function App() {
                   size="sm"
                   borderRadius="full"
                   bg={isActive ? 'brand.600' : 'transparent'}
-                  color={isActive ? 'white' : 'gray.800'}
+                  color={isActive ? 'white' : isDarkMode ? 'gray.200' : 'gray.800'}
                   _hover={{
                     bg: isActive ? 'brand.700' : 'blackAlpha.50',
-                    color: isActive ? 'white' : 'gray.900',
+                    color: isActive ? 'white' : isDarkMode ? 'white' : 'gray.900',
                   }}
                   onClick={() => setView(mode)}
                 >
@@ -1669,16 +1714,18 @@ function App() {
               </Flex>
             ) : null}
 
-            {view === 'about' ? <AboutView /> : null}
+            {view === 'about' ? <AboutView isDarkMode={isDarkMode} /> : null}
 
             {view === 'dashboard' ? (
               <Box display="grid" gap={6}>
                 <BiWeeklyHours
+                  isDarkMode={isDarkMode}
                   shifts={shifts}
                   settings={settings}
                   onSelectPeriod={handlePayPeriodSelect}
                 />
                 <ShiftsByDay
+                  isDarkMode={isDarkMode}
                   shifts={sortedShifts.slice(0, 8)}
                   settings={settings}
                   onEdit={handleEditShift}
@@ -1693,6 +1740,7 @@ function App() {
 
             {view === 'byDay' ? (
               <ShiftsByDay
+                isDarkMode={isDarkMode}
                 shifts={filteredShifts}
                 settings={settings}
                 onEdit={handleEditShift}
@@ -1710,6 +1758,7 @@ function App() {
 
             {view === 'biWeekly' ? (
               <BiWeeklyHours
+                isDarkMode={isDarkMode}
                 shifts={shifts}
                 settings={settings}
                 onSelectPeriod={handlePayPeriodSelect}
@@ -1727,6 +1776,7 @@ function App() {
         </Box>
 
         <AddShiftDialog
+          isDarkMode={isDarkMode}
           isOpen={isAddOpen}
           onClose={closeShiftDialog}
           onSave={handleSaveShift}
@@ -1737,6 +1787,7 @@ function App() {
         />
 
         <SettingsDialog
+          isDarkMode={isDarkMode}
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           onSave={handleSaveSettings}

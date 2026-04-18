@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   AlertDescription,
@@ -565,8 +565,10 @@ function App() {
   const [editingShift, setEditingShift] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [lastDeletedShift, setLastDeletedShift] = useState(null);
   const isDarkMode = uiMode === 'dark';
   const theme = useMemo(() => createTheme(uiMode), [uiMode]);
+  const deleteUndoTimeoutRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -575,6 +577,14 @@ function App() {
       // ignore persistence errors
     }
   }, [uiMode]);
+
+  useEffect(() => {
+    return () => {
+      if (deleteUndoTimeoutRef.current) {
+        clearTimeout(deleteUndoTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     saveProfileStore(profileStore);
@@ -1000,7 +1010,24 @@ function App() {
     setIsAddOpen(true);
   }
 
+  function queueDeletedShiftForUndo(shift) {
+    if (deleteUndoTimeoutRef.current) {
+      clearTimeout(deleteUndoTimeoutRef.current);
+    }
+
+    setLastDeletedShift(shift);
+    deleteUndoTimeoutRef.current = setTimeout(() => {
+      setLastDeletedShift(null);
+      deleteUndoTimeoutRef.current = null;
+    }, 8000);
+  }
+
   async function handleDeleteShift(id) {
+    const deletedShift = shifts.find((shift) => shift.id === id);
+    if (!deletedShift) {
+      return;
+    }
+
     if (isCloudMode) {
       try {
         setCloudError('');
@@ -1019,6 +1046,7 @@ function App() {
           ...currentData,
           shifts: currentData.shifts.filter((shift) => shift.id !== id),
         }));
+        queueDeletedShiftForUndo(deletedShift);
       } catch (error) {
         setCloudError(error.message || 'Unable to delete this shift.');
       }
@@ -1030,6 +1058,55 @@ function App() {
       ...currentProfileData,
       shifts: (currentProfileData.shifts || []).filter((shift) => shift.id !== id),
     }));
+    queueDeletedShiftForUndo(deletedShift);
+  }
+
+  async function handleUndoDeleteShift() {
+    if (!lastDeletedShift) {
+      return;
+    }
+
+    if (deleteUndoTimeoutRef.current) {
+      clearTimeout(deleteUndoTimeoutRef.current);
+      deleteUndoTimeoutRef.current = null;
+    }
+
+    if (isCloudMode) {
+      try {
+        setCloudError('');
+
+        const { data, error } = await supabase
+          .from('shifts')
+          .insert(serializeShift(lastDeletedShift, session.user.id))
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        const restoredShift = normalizeShiftRow(data);
+
+        setCloudProfileData((currentData) => ({
+          ...currentData,
+          shifts: sortShiftsNewestFirst([restoredShift, ...currentData.shifts]),
+        }));
+        setLastDeletedShift(null);
+      } catch (error) {
+        setCloudError(error.message || 'Unable to restore this deleted shift.');
+      }
+
+      return;
+    }
+
+    updateActiveProfileData((currentProfileData) => ({
+      ...currentProfileData,
+      shifts: sortShiftsNewestFirst([
+        lastDeletedShift,
+        ...(currentProfileData.shifts || []).filter((shift) => shift.id !== lastDeletedShift.id),
+      ]),
+    }));
+    setLastDeletedShift(null);
   }
 
   async function handleSaveSettings(nextSettings) {
@@ -1542,6 +1619,32 @@ function App() {
               <Alert status="error" mb={4} borderRadius="3xl" bg="red.900" color="red.100">
                 <AlertIcon />
                 <AlertDescription>{cloudError}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {lastDeletedShift ? (
+              <Alert
+                status="warning"
+                mb={4}
+                borderRadius="3xl"
+                bg={isDarkMode ? 'rgba(133, 77, 14, 0.22)' : 'rgba(245, 158, 11, 0.12)'}
+                border="1px solid rgba(245, 158, 11, 0.22)"
+              >
+                <AlertIcon />
+                <Flex
+                  w="full"
+                  align={{ base: 'flex-start', md: 'center' }}
+                  justify="space-between"
+                  direction={{ base: 'column', md: 'row' }}
+                  gap={3}
+                >
+                  <AlertDescription>
+                    Deleted shift from {lastDeletedShift.date}. Undo if that was accidental.
+                  </AlertDescription>
+                  <Button size="sm" bg="brand.600" color="white" _hover={{ bg: 'brand.700' }} onClick={handleUndoDeleteShift}>
+                    Undo Delete
+                  </Button>
+                </Flex>
               </Alert>
             ) : null}
 

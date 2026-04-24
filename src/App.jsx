@@ -26,7 +26,6 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
-  Wallet,
 } from 'lucide-react';
 import AddShiftDialog from './components/AddShiftDialog';
 import AboutView from './components/AboutView';
@@ -472,38 +471,168 @@ function formatWeekLabel(startDate) {
   })}`;
 }
 
-function StatCard({ icon: Icon, label, value, helper, accent }) {
+function SnapshotCard({
+  isDarkMode,
+  label,
+  title,
+  value,
+  detail,
+  helper,
+  accent,
+  metrics = [],
+}) {
   return (
     <Box
-      bg="rgba(255, 255, 255, 0.88)"
-      borderRadius="3xl"
-      p={{ base: 5, md: 6 }}
+      bg={
+        isDarkMode
+          ? 'linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.98) 100%)'
+          : 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)'
+      }
+      borderRadius="32px"
+      p={{ base: 6, md: 7 }}
       border="1px solid"
-      borderColor="rgba(22, 33, 43, 0.08)"
-      boxShadow="0 18px 40px rgba(34, 46, 56, 0.08)"
+      borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.08)'}
+      boxShadow={isDarkMode ? '0 26px 54px rgba(2, 6, 23, 0.42)' : '0 24px 48px rgba(15, 23, 42, 0.08)'}
+      position="relative"
+      overflow="hidden"
+    >
+      <Box
+        position="absolute"
+        insetX={0}
+        top={0}
+        height="5px"
+        bg={accent}
+        opacity={0.9}
+      />
+      <Text
+        color={isDarkMode ? 'gray.400' : 'gray.600'}
+        fontSize="xs"
+        fontWeight="semibold"
+        letterSpacing="0.14em"
+        textTransform="uppercase"
+      >
+        {label}
+      </Text>
+      <Text
+        mt={3}
+        color={isDarkMode ? 'white' : 'gray.900'}
+        fontSize={{ base: '2xl', md: '3xl' }}
+        fontWeight="bold"
+        lineHeight="shorter"
+        maxW="18ch"
+      >
+        {title}
+      </Text>
+      <Text
+        mt={4}
+        color={isDarkMode ? 'white' : 'gray.900'}
+        fontSize={{ base: '3xl', md: '4xl' }}
+        fontWeight="black"
+        lineHeight="0.95"
+      >
+        {value}
+      </Text>
+      {detail ? (
+        <Text mt={2} color={accent} fontSize="sm" fontWeight="semibold">
+          {detail}
+        </Text>
+      ) : null}
+
+      {metrics.length ? (
+        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} mt={6}>
+          {metrics.map((metric) => (
+            <Box
+              key={metric.label}
+              bg={isDarkMode ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.82)'}
+              borderRadius="22px"
+              p={4}
+              border="1px solid"
+              borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)'}
+            >
+              <Text
+                color={isDarkMode ? 'gray.400' : 'gray.500'}
+                fontSize="xs"
+                fontWeight="semibold"
+                textTransform="uppercase"
+                letterSpacing="0.1em"
+              >
+                {metric.label}
+              </Text>
+              <Text
+                mt={1.5}
+                color={isDarkMode ? 'white' : 'gray.900'}
+                fontSize="xl"
+                fontWeight="bold"
+              >
+                {metric.value}
+              </Text>
+              <Text mt={1} color={isDarkMode ? 'gray.400' : 'gray.600'} fontSize="sm">
+                {metric.helper}
+              </Text>
+            </Box>
+          ))}
+        </SimpleGrid>
+      ) : null}
+
+      <Box
+        mt={6}
+        pt={4}
+        borderTop="1px solid"
+        borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.08)'}
+      >
+        <Text color={isDarkMode ? 'gray.300' : 'gray.700'} fontSize="sm" lineHeight="tall">
+          {helper}
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+function SummaryCard({ icon: Icon, isDarkMode, label, value, helper, accent }) {
+  return (
+    <Box
+      bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.96)'}
+      borderRadius="28px"
+      p={{ base: 5, md: 5.5 }}
+      border="1px solid"
+      borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)'}
+      boxShadow={isDarkMode ? '0 20px 44px rgba(2, 6, 23, 0.34)' : '0 18px 36px rgba(15, 23, 42, 0.08)'}
     >
       <Flex justify="space-between" align="flex-start" gap={4}>
         <Box>
-          <Text color="gray.700" fontSize="xs" fontWeight="semibold" letterSpacing="0.12em" textTransform="uppercase">
+          <Text
+            color={isDarkMode ? 'gray.400' : 'gray.600'}
+            fontSize="xs"
+            fontWeight="semibold"
+            letterSpacing="0.14em"
+            textTransform="uppercase"
+          >
             {label}
           </Text>
-          <Text mt={3} color={accent} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" lineHeight="shorter">
+          <Text
+            mt={3}
+            color={isDarkMode ? 'white' : 'gray.900'}
+            fontSize={{ base: '2xl', md: '2.5xl' }}
+            fontWeight="bold"
+            lineHeight="shorter"
+          >
             {value}
           </Text>
-          <Text mt={2} color="gray.800" fontSize="sm" lineHeight="tall">
+          <Text mt={2} color={isDarkMode ? 'gray.300' : 'gray.600'} fontSize="sm" lineHeight="tall">
             {helper}
           </Text>
         </Box>
 
         <Flex
           color={accent}
-          opacity={0.95}
-          bg="rgba(95, 139, 109, 0.08)"
-          border="1px solid rgba(95, 139, 109, 0.12)"
+          bg={`${accent}14`}
+          border="1px solid"
+          borderColor={`${accent}22`}
           borderRadius="2xl"
-          p={3}
+          p={3.5}
           align="center"
           justify="center"
+          flexShrink={0}
         >
           <Icon size={24} />
         </Flex>
@@ -695,21 +824,29 @@ function App() {
   const canImportLocalData =
     isCloudMode && !cloudProfileData.shifts.length && hasLocalDataToImport(localDataset);
 
-  const currentPayPeriodStats = useMemo(() => {
+  const payPeriodStats = useMemo(() => {
+    const hourlyRate = settings?.hourlyRate || 0;
+    const tipOutRate = settings?.tipOutRate || 0;
+    const periods = getPeriods(shifts, hourlyRate, tipOutRate);
     const todayPeriodStart = getPeriodStart(new Date());
     const todayPeriodKey = todayPeriodStart.toISOString();
-    const periods = getPeriods(shifts, settings?.hourlyRate || 0, settings?.tipOutRate || 0);
-
-    return (
+    const selectedPeriod =
+      historyFilterType === 'payPeriod' && historyFilterValue
+        ? periods.find((period) => period.key === historyFilterValue)
+        : null;
+    const activePeriod =
+      selectedPeriod ||
       periods.find((period) => period.key === todayPeriodKey) ||
-      buildPeriodSummary(
-        todayPeriodStart,
-        [],
-        settings?.hourlyRate || 0,
-        settings?.tipOutRate || 0
-      )
-    );
-  }, [settings?.hourlyRate, settings?.tipOutRate, shifts]);
+      buildPeriodSummary(todayPeriodStart, [], hourlyRate, tipOutRate);
+
+    return activePeriod;
+  }, [
+    historyFilterType,
+    historyFilterValue,
+    settings?.hourlyRate,
+    settings?.tipOutRate,
+    shifts,
+  ]);
   const yearlyStats = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearShifts = shifts.filter((shift) => {
@@ -853,6 +990,34 @@ function App() {
     selectedDate,
     weekOptions,
   ]);
+
+  const topSummary = useMemo(() => {
+    if (historyFilterType === 'payPeriod' && historyFilterValue) {
+      return {
+        modeLabel: 'Selected pay period',
+        title: payPeriodStats.label,
+        helper: 'These totals are now following the pay period you picked in the filter below.',
+        takeHome: payPeriodStats.totalTakeHome,
+        netTips: payPeriodStats.netTips,
+        tipOut: payPeriodStats.tipOut,
+        sales: payPeriodStats.sales,
+        basePay: payPeriodStats.basePay,
+        shifts: payPeriodStats.shifts,
+      };
+    }
+
+    return {
+      modeLabel: 'Current pay period',
+      title: payPeriodStats.label,
+      helper: 'This snapshot shows the pay period you are currently in right now.',
+      takeHome: payPeriodStats.totalTakeHome,
+      netTips: payPeriodStats.netTips,
+      tipOut: payPeriodStats.tipOut,
+      sales: payPeriodStats.sales,
+      basePay: payPeriodStats.basePay,
+      shifts: payPeriodStats.shifts,
+    };
+  }, [historyFilterType, historyFilterValue, payPeriodStats]);
 
   function closeShiftDialog() {
     setEditingShift(null);
@@ -1699,41 +1864,63 @@ function App() {
               </Box>
             ) : null}
 
-            <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={4} mb={6}>
-              <StatCard
-                icon={TrendingUp}
-                label="Net tips this pay period"
-                value={formatCurrency(currentPayPeriodStats.netTips)}
-                helper={`${currentPayPeriodStats.label} • ${currentPayPeriodStats.shifts} ${
-                  currentPayPeriodStats.shifts === 1 ? 'shift' : 'shifts'
-                } logged`}
-                accent="#68d391"
-              />
-              <StatCard
-                icon={Wallet}
-                label="Take-home this pay period"
-                value={formatCurrency(currentPayPeriodStats.totalTakeHome)}
-                helper="Net tips plus base pay for this check"
-                accent="#7dd3fc"
-              />
-              <StatCard
-                icon={TrendingDown}
-                label="Tip-out this pay period"
-                value={formatCurrency(currentPayPeriodStats.tipOut)}
-                helper={`${settings.tipOutRate}% of ${formatCurrency(
-                  currentPayPeriodStats.sales
-                )} sales this check`}
-                accent="#fc8181"
-              />
-              <StatCard
-                icon={Target}
-                label="Yearly wages"
-                value={formatCurrency(yearlyStats.totalTakeHome)}
-                helper={`${yearlyStats.year} total • ${formatCurrency(
-                  yearlyStats.totalBasePay
-                )} base pay + ${formatCurrency(yearlyStats.totalNetTips)} net tips`}
-                accent="#f687b3"
-              />
+            <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={4} mb={6}>
+              <Box gridColumn={{ base: 'auto', xl: 'span 2' }}>
+                <SnapshotCard
+                  isDarkMode={isDarkMode}
+                  label={topSummary.modeLabel}
+                  title={topSummary.title}
+                  value={formatCurrency(topSummary.takeHome)}
+                  detail={`${topSummary.shifts} ${
+                    topSummary.shifts === 1 ? 'shift' : 'shifts'
+                  } in this snapshot`}
+                  helper={topSummary.helper}
+                  accent="#38bdf8"
+                  metrics={[
+                    {
+                      label: 'Net tips',
+                      value: formatCurrency(topSummary.netTips),
+                      helper: 'After tip-out',
+                    },
+                    {
+                      label: 'Tip-out',
+                      value: formatCurrency(topSummary.tipOut),
+                      helper: `${settings.tipOutRate}% of sales`,
+                    },
+                    {
+                      label: 'Base pay',
+                      value: formatCurrency(topSummary.basePay),
+                      helper: `${formatCurrency(topSummary.sales)} sales`,
+                    },
+                  ]}
+                />
+              </Box>
+              <Box display="grid" gap={4}>
+                <SummaryCard
+                  icon={TrendingUp}
+                  isDarkMode={isDarkMode}
+                  label="Net tips"
+                  value={formatCurrency(topSummary.netTips)}
+                  helper="Money left after the tip-out is removed from your tips."
+                  accent="#68d391"
+                />
+                <SummaryCard
+                  icon={TrendingDown}
+                  isDarkMode={isDarkMode}
+                  label="Tip-out"
+                  value={formatCurrency(topSummary.tipOut)}
+                  helper="Total paid out from sales for the pay period you are viewing."
+                  accent="#fc8181"
+                />
+                <SummaryCard
+                  icon={Target}
+                  isDarkMode={isDarkMode}
+                  label="Yearly wages"
+                  value={formatCurrency(yearlyStats.totalTakeHome)}
+                  helper={`${yearlyStats.year} running total across all saved shifts.`}
+                  accent="#c084fc"
+                />
+              </Box>
             </SimpleGrid>
 
             {view === 'byDay' ? (

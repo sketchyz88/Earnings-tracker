@@ -539,7 +539,7 @@ function SnapshotCard({
       ) : null}
 
       {metrics.length ? (
-        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} mt={6}>
+        <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={3} mt={6}>
           {metrics.map((metric) => (
             <Box
               key={metric.label}
@@ -1000,6 +1000,7 @@ function App() {
         takeHome: payPeriodStats.totalTakeHome,
         netTips: payPeriodStats.netTips,
         tipOut: payPeriodStats.tipOut,
+        hours: payPeriodStats.hours,
         sales: payPeriodStats.sales,
         basePay: payPeriodStats.basePay,
         shifts: payPeriodStats.shifts,
@@ -1013,6 +1014,7 @@ function App() {
       takeHome: payPeriodStats.totalTakeHome,
       netTips: payPeriodStats.netTips,
       tipOut: payPeriodStats.tipOut,
+      hours: payPeriodStats.hours,
       sales: payPeriodStats.sales,
       basePay: payPeriodStats.basePay,
       shifts: payPeriodStats.shifts,
@@ -1878,6 +1880,11 @@ function App() {
                   accent="#38bdf8"
                   metrics={[
                     {
+                      label: 'Hours worked',
+                      value: topSummary.hours.toFixed(1),
+                      helper: 'Total hours in this pay period',
+                    },
+                    {
                       label: 'Net tips',
                       value: formatCurrency(topSummary.netTips),
                       helper: 'After tip-out',
@@ -1890,7 +1897,7 @@ function App() {
                     {
                       label: 'Base pay',
                       value: formatCurrency(topSummary.basePay),
-                      helper: `${formatCurrency(topSummary.sales)} sales`,
+                      helper: `${formatCurrency(topSummary.sales)} total sales`,
                     },
                   ]}
                 />

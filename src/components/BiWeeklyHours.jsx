@@ -17,9 +17,6 @@ import {
   YAxis,
 } from 'recharts';
 
-const PAY_PERIOD_LENGTH_DAYS = 14;
-const PAY_PERIOD_ANCHOR = new Date('2026-03-06T00:00:00');
-
 function startOfDay(date) {
   const normalized = new Date(date);
   normalized.setHours(0, 0, 0, 0);
@@ -28,18 +25,31 @@ function startOfDay(date) {
 
 export function getPeriodStart(date) {
   const normalizedDate = startOfDay(date);
-  const anchorDate = startOfDay(PAY_PERIOD_ANCHOR);
-  const millisecondsPerDay = 24 * 60 * 60 * 1000;
-  const dayDifference = Math.floor((normalizedDate - anchorDate) / millisecondsPerDay);
-  const periodOffset = Math.floor(dayDifference / PAY_PERIOD_LENGTH_DAYS);
-  const periodStart = new Date(anchorDate);
-  periodStart.setDate(anchorDate.getDate() + periodOffset * PAY_PERIOD_LENGTH_DAYS);
+
+  const periodStart = new Date(normalizedDate);
+  if (normalizedDate.getDate() <= 15) {
+    periodStart.setDate(1);
+  } else {
+    periodStart.setDate(16);
+  }
+
+  periodStart.setHours(0, 0, 0, 0);
   return periodStart;
 }
 
-export function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOutRate) {
+export function getPeriodEnd(periodStart) {
   const periodEnd = new Date(periodStart);
-  periodEnd.setDate(periodEnd.getDate() + (PAY_PERIOD_LENGTH_DAYS - 1));
+  if (periodStart.getDate() === 1) {
+    periodEnd.setDate(15);
+  } else {
+    periodEnd.setMonth(periodEnd.getMonth() + 1, 0);
+  }
+  periodEnd.setHours(0, 0, 0, 0);
+  return periodEnd;
+}
+
+export function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOutRate) {
+  const periodEnd = getPeriodEnd(periodStart);
 
   const hours = periodShifts.reduce((sum, shift) => sum + (Number(shift.hours) || 0), 0);
   const sales = periodShifts.reduce((sum, shift) => sum + (Number(shift.sales) || 0), 0);

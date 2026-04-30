@@ -30,7 +30,12 @@ import {
 import AddShiftDialog from './components/AddShiftDialog';
 import AboutView from './components/AboutView';
 import AuthScreen from './components/AuthScreen';
-import BiWeeklyHours, { buildPeriodSummary, getPeriodStart, getPeriods } from './components/BiWeeklyHours';
+import BiWeeklyHours, {
+  buildPeriodSummary,
+  getPeriodEnd,
+  getPeriodStart,
+  getPeriods,
+} from './components/BiWeeklyHours';
 import CalendarView from './components/CalendarView';
 import FloorComparison from './components/FloorComparison';
 import SettingsDialog from './components/SettingsDialog';
@@ -933,8 +938,7 @@ function App() {
         }
 
         const periodStart = new Date(selectedPeriod.key);
-        const periodEnd = new Date(periodStart);
-        periodEnd.setDate(periodEnd.getDate() + 13);
+        const periodEnd = getPeriodEnd(periodStart);
 
         return shifts.filter((shift) => {
           const shiftDate = new Date(`${shift.date}T00:00:00`);

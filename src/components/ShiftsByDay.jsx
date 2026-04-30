@@ -15,6 +15,15 @@ import {
 } from '@chakra-ui/react';
 import { Edit, Trash2 } from 'lucide-react';
 
+function getShiftSortTimestamp(shift) {
+  if (!shift?.date) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const timeValue = shift.endTime || shift.startTime || '00:00';
+  return new Date(`${shift.date}T${timeValue}:00`).getTime();
+}
+
 function ShiftsByDay({
   isDarkMode = false,
   shifts,
@@ -27,7 +36,7 @@ function ShiftsByDay({
   emptySubtitle = 'Add a shift to get started.',
 }) {
   const sortedShifts = [...(shifts || [])].sort((left, right) => {
-    return new Date(right.date) - new Date(left.date);
+    return getShiftSortTimestamp(right) - getShiftSortTimestamp(left);
   });
 
   if (!sortedShifts.length) {

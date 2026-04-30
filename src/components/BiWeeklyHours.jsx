@@ -23,6 +23,18 @@ function startOfDay(date) {
   return normalized;
 }
 
+export function getPeriodKey(date) {
+  const normalized = startOfDay(date);
+  const year = normalized.getFullYear();
+  const month = String(normalized.getMonth() + 1).padStart(2, '0');
+  const day = String(normalized.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function parsePeriodKey(periodKey) {
+  return new Date(`${periodKey}T00:00:00`);
+}
+
 export function getPeriodStart(date) {
   const normalizedDate = startOfDay(date);
 
@@ -64,7 +76,7 @@ export function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOut
   }, 0);
 
   return {
-    key: periodStart.toISOString(),
+    key: getPeriodKey(periodStart),
     label: `${periodStart.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -96,7 +108,7 @@ export function getPeriods(shifts, hourlyRate, tipOutRate) {
   sortedShifts.forEach((shift) => {
     const shiftDate = new Date(`${shift.date}T00:00:00`);
     const periodStart = getPeriodStart(shiftDate);
-    const periodKey = periodStart.toISOString();
+    const periodKey = getPeriodKey(periodStart);
 
     if (!groupedPeriods.has(periodKey)) {
       groupedPeriods.set(periodKey, []);
@@ -107,9 +119,9 @@ export function getPeriods(shifts, hourlyRate, tipOutRate) {
 
   return Array.from(groupedPeriods.entries())
     .map(([periodKey, periodShifts]) =>
-      buildPeriodSummary(new Date(periodKey), periodShifts, hourlyRate, tipOutRate)
+      buildPeriodSummary(parsePeriodKey(periodKey), periodShifts, hourlyRate, tipOutRate)
     )
-    .sort((left, right) => new Date(left.key) - new Date(right.key));
+    .sort((left, right) => parsePeriodKey(left.key) - parsePeriodKey(right.key));
 }
 
 function Metric({ label, value, accent = 'white' }) {
@@ -130,7 +142,7 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
   const hoursGoal = settings?.hoursGoal || 80;
   const tipGoal = settings?.tipGoal || 100;
   const todayPeriodStart = getPeriodStart(new Date());
-  const todayPeriodKey = todayPeriodStart.toISOString();
+  const todayPeriodKey = getPeriodKey(todayPeriodStart);
 
   if (!periods.length) {
     return (

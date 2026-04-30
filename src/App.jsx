@@ -33,8 +33,10 @@ import AuthScreen from './components/AuthScreen';
 import BiWeeklyHours, {
   buildPeriodSummary,
   getPeriodEnd,
+  getPeriodKey,
   getPeriodStart,
   getPeriods,
+  parsePeriodKey,
 } from './components/BiWeeklyHours';
 import CalendarView from './components/CalendarView';
 import FloorComparison from './components/FloorComparison';
@@ -834,7 +836,7 @@ function App() {
     const tipOutRate = settings?.tipOutRate || 0;
     const periods = getPeriods(shifts, hourlyRate, tipOutRate);
     const todayPeriodStart = getPeriodStart(new Date());
-    const todayPeriodKey = todayPeriodStart.toISOString();
+    const todayPeriodKey = getPeriodKey(todayPeriodStart);
     const selectedPeriod =
       historyFilterType === 'payPeriod' && historyFilterValue
         ? periods.find((period) => period.key === historyFilterValue)
@@ -937,7 +939,7 @@ function App() {
           return [];
         }
 
-        const periodStart = new Date(selectedPeriod.key);
+        const periodStart = parsePeriodKey(selectedPeriod.key);
         const periodEnd = getPeriodEnd(periodStart);
 
         return shifts.filter((shift) => {

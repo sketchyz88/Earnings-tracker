@@ -105,9 +105,11 @@ export function getPeriods(shifts, hourlyRate, tipOutRate) {
     groupedPeriods.get(periodKey).push(shift);
   });
 
-  return Array.from(groupedPeriods.entries()).map(([periodKey, periodShifts]) =>
-    buildPeriodSummary(new Date(periodKey), periodShifts, hourlyRate, tipOutRate)
-  );
+  return Array.from(groupedPeriods.entries())
+    .map(([periodKey, periodShifts]) =>
+      buildPeriodSummary(new Date(periodKey), periodShifts, hourlyRate, tipOutRate)
+    )
+    .sort((left, right) => new Date(left.key) - new Date(right.key));
 }
 
 function Metric({ label, value, accent = 'white' }) {
@@ -154,6 +156,7 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
   const currentPeriod =
     periods.find((period) => period.key === todayPeriodKey) ||
     buildPeriodSummary(todayPeriodStart, [], settings?.hourlyRate || 0, settings?.tipOutRate || 0);
+  const historicalPeriods = periods.filter((period) => period.key !== currentPeriod.key);
   const hoursProgress = Math.min(100, (currentPeriod.hours / hoursGoal) * 100);
   const tipsProgress = Math.min(100, (currentPeriod.netTips / tipGoal) * 100);
 
@@ -227,7 +230,7 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
         </Box>
       </Box>
 
-      {periods.length > 1 ? (
+      {historicalPeriods.length ? (
         <Box
           bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
           borderRadius="3xl"
@@ -261,7 +264,7 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
             <Heading size="xs" color="gray.400" textTransform="uppercase" letterSpacing="0.08em">
               Pay period history
             </Heading>
-            {periods
+            {historicalPeriods
               .slice()
               .reverse()
               .map((period) => (

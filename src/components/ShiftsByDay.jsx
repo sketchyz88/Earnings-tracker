@@ -14,6 +14,7 @@ import {
   Tr,
 } from '@chakra-ui/react';
 import { Edit, Trash2 } from 'lucide-react';
+import { getPeriodEnd, getPeriodStart } from './BiWeeklyHours';
 
 function getShiftSortTimestamp(shift) {
   if (!shift?.date) {
@@ -22,6 +23,23 @@ function getShiftSortTimestamp(shift) {
 
   const timeValue = shift.endTime || shift.startTime || '00:00';
   return new Date(`${shift.date}T${timeValue}:00`).getTime();
+}
+
+function formatPayPeriodLabel(dateString) {
+  if (!dateString) {
+    return 'No pay period';
+  }
+
+  const periodStart = getPeriodStart(new Date(`${dateString}T00:00:00`));
+  const periodEnd = getPeriodEnd(periodStart);
+
+  return `${periodStart.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })} - ${periodEnd.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })}`;
 }
 
 function ShiftsByDay({
@@ -89,6 +107,7 @@ function ShiftsByDay({
           <Thead bg="rgba(22, 33, 43, 0.03)">
             <Tr>
               <Th color="gray.400">Date</Th>
+              <Th color="gray.400">Pay Period</Th>
               <Th color="gray.400">Shift</Th>
               <Th color="gray.400">Hours</Th>
               <Th color="gray.400">Sales</Th>
@@ -113,6 +132,17 @@ function ShiftsByDay({
               return (
                 <Tr key={shift.id} _hover={{ bg: 'rgba(22, 33, 43, 0.03)' }}>
                   <Td fontWeight="semibold">{shift.date}</Td>
+                  <Td>
+                    <Badge
+                      borderRadius="full"
+                      px={3}
+                      py={1}
+                      bg="rgba(59, 130, 246, 0.1)"
+                      color="brand.700"
+                    >
+                      {formatPayPeriodLabel(shift.date)}
+                    </Badge>
+                  </Td>
                   <Td color={isDarkMode ? 'gray.200' : 'gray.800'}>
                     {shift.startTime && shift.endTime
                       ? `${shift.startTime} - ${shift.endTime}`

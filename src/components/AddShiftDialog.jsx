@@ -28,6 +28,7 @@ import {
   VStack,
 } from '@chakra-ui/react';
 import { Camera } from 'lucide-react';
+import { getPeriodEnd, getPeriodStart } from './BiWeeklyHours';
 import { parseReceiptText } from '../utils/receiptParser';
 
 const FLOORS = ['Floor 1', 'Floor 2'];
@@ -68,6 +69,44 @@ function createEmptyForm() {
 
 function formatCurrency(value) {
   return `$${value.toFixed(2)}`;
+}
+
+function formatPayPeriodLabel(periodStart) {
+  const periodEnd = getPeriodEnd(periodStart);
+  return `${periodStart.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })} - ${periodEnd.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })}`;
+}
+
+function toDateInputValue(date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+}
+
+function shiftToPreviousPayPeriod(dateString) {
+  if (!dateString) {
+    return dateString;
+  }
+
+  const currentPeriodStart = getPeriodStart(new Date(`${dateString}T00:00:00`));
+  const previousPeriodEnd = new Date(currentPeriodStart);
+  previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
+  return toDateInputValue(previousPeriodEnd);
+}
+
+function shiftToNextPayPeriod(dateString) {
+  if (!dateString) {
+    return dateString;
+  }
+
+  const currentPeriodStart = getPeriodStart(new Date(`${dateString}T00:00:00`));
+  const currentPeriodEnd = getPeriodEnd(currentPeriodStart);
+  const nextPeriodStart = new Date(currentPeriodEnd);
+  nextPeriodStart.setDate(nextPeriodStart.getDate() + 1);
+  return toDateInputValue(nextPeriodStart);
 }
 
 function loadImageFromFile(file) {
@@ -254,6 +293,14 @@ function AddShiftDialog({
     const sales = Number(form.sales) || 0;
     return sales * ((Number(settings?.tipOutRate) || 0) / 100);
   }, [form.sales, settings?.tipOutRate]);
+
+  const activePayPeriodLabel = useMemo(() => {
+    if (!form.date) {
+      return '';
+    }
+
+    return formatPayPeriodLabel(getPeriodStart(new Date(`${form.date}T00:00:00`)));
+  }, [form.date]);
 
   function updateField(field, value) {
     setForm((currentForm) => {
@@ -662,6 +709,27 @@ function AddShiftDialog({
                 value={form.date}
                 onChange={(event) => updateField('date', event.target.value)}
               />
+              <FormHelperText color="gray.400">
+                This shift is currently assigned to pay period {activePayPeriodLabel || 'not set'}.
+              </FormHelperText>
+              <HStack mt={3} spacing={2} flexWrap="wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => updateField('date', shiftToPreviousPayPeriod(form.date))}
+                  isDisabled={!form.date}
+                >
+                  Move to previous pay period
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => updateField('date', shiftToNextPayPeriod(form.date))}
+                  isDisabled={!form.date}
+                >
+                  Move to next pay period
+                </Button>
+              </HStack>
             </FormControl>
 
             <HStack w="full" spacing={4}>

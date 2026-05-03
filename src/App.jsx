@@ -1821,22 +1821,6 @@ function App() {
               </Alert>
             ) : null}
 
-            {isCloudMode ? (
-              <Alert
-                status="info"
-                mb={4}
-                borderRadius="3xl"
-                bg="rgba(255, 255, 255, 0.9)"
-                border="1px solid rgba(22, 33, 43, 0.06)"
-              >
-                <AlertIcon />
-                <AlertDescription>
-                  Privacy note: each account is private to the person who signs in, so coworkers
-                  cannot see one another&apos;s shifts without the correct password.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
             {canImportLocalData ? (
               <Box
                 mb={4}

@@ -80,24 +80,6 @@ function AuthScreen({ isDarkMode = false, isSubmitting, authError, authMessage, 
           and desktop.
         </Text>
 
-        <Alert
-          status="info"
-          mt={5}
-          borderRadius="2xl"
-          bg="rgba(250, 251, 249, 0.95)"
-          color="gray.700"
-          border="1px solid rgba(22, 33, 43, 0.06)"
-        >
-          <AlertIcon />
-          <Box>
-            <AlertTitle mb={1}>Privacy note</AlertTitle>
-            <AlertDescription>
-              Other coworkers cannot open your account without your password, and the app owner
-              cannot see your private shift data just by running the site.
-            </AlertDescription>
-          </Box>
-        </Alert>
-
         <Stack direction={{ base: 'column', sm: 'row' }} spacing={3} mt={6}>
           <Button
             onClick={() => setMode('signIn')}
@@ -191,6 +173,23 @@ function AuthScreen({ isDarkMode = false, isSubmitting, authError, authMessage, 
           >
             {mode === 'signIn' ? 'Sign In' : 'Create Account'}
           </Button>
+
+          <Text
+            textAlign="center"
+            fontSize="sm"
+            color={isDarkMode ? 'gray.300' : 'gray.700'}
+          >
+            {mode === 'signIn' ? 'New here?' : 'Already have an account?'}{' '}
+            <Button
+              variant="link"
+              color="brand.600"
+              fontSize="sm"
+              fontWeight="semibold"
+              onClick={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}
+            >
+              {mode === 'signIn' ? 'Create an account' : 'Sign in instead'}
+            </Button>
+          </Text>
         </Box>
       </Box>
     </Box>

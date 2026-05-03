@@ -168,7 +168,6 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
   const currentPeriod =
     periods.find((period) => period.key === todayPeriodKey) ||
     buildPeriodSummary(todayPeriodStart, [], settings?.hourlyRate || 0, settings?.tipOutRate || 0);
-  const historicalPeriods = periods.filter((period) => period.key !== currentPeriod.key);
   const hoursProgress = Math.min(100, (currentPeriod.hours / hoursGoal) * 100);
   const tipsProgress = Math.min(100, (currentPeriod.netTips / tipGoal) * 100);
 
@@ -242,7 +241,7 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
         </Box>
       </Box>
 
-      {historicalPeriods.length ? (
+      {periods.length ? (
         <Box
           bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
           borderRadius="3xl"
@@ -276,7 +275,7 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
             <Heading size="xs" color="gray.400" textTransform="uppercase" letterSpacing="0.08em">
               Pay period history
             </Heading>
-            {historicalPeriods
+            {periods
               .slice()
               .reverse()
               .map((period) => (
@@ -303,7 +302,20 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
                   onClick={() => onSelectPeriod?.(period)}
                 >
                   <Box>
-                    <Text fontWeight="semibold">{period.label}</Text>
+                    <HStack spacing={2}>
+                      <Text fontWeight="semibold">{period.label}</Text>
+                      {period.key === currentPeriod.key ? (
+                        <Text
+                          fontSize="xs"
+                          fontWeight="semibold"
+                          textTransform="uppercase"
+                          letterSpacing="0.08em"
+                          color="brand.600"
+                        >
+                          Current
+                        </Text>
+                      ) : null}
+                    </HStack>
                     <Text color="gray.400" fontSize="sm">
                       {period.shifts} {period.shifts === 1 ? 'shift' : 'shifts'} • Sales $
                       {period.sales.toFixed(2)}

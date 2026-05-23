@@ -1,4 +1,5 @@
-import { Box, Badge, Heading, SimpleGrid, Text } from '@chakra-ui/react';
+import { useMemo, useState } from 'react';
+import { Box, Badge, FormControl, FormLabel, Heading, Input, Select, SimpleGrid, Text } from '@chakra-ui/react';
 import {
   Bar,
   BarChart,
@@ -9,9 +10,51 @@ import {
   YAxis,
 } from 'recharts';
 
+function startOfDay(date) {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+}
+
+function getDateRangeLabel(days) {
+  return `Last ${days} day${days === 1 ? '' : 's'}`;
+}
+
 function FloorComparison({ shifts, settings }) {
+  const [rangePreset, setRangePreset] = useState('14');
+  const [customDays, setCustomDays] = useState('30');
+
+  const selectedDays = useMemo(() => {
+    if (rangePreset === 'custom') {
+      const parsed = Number(customDays);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
+    }
+
+    return Number(rangePreset) || 14;
+  }, [customDays, rangePreset]);
+
+  const filteredShifts = useMemo(() => {
+    const allShifts = shifts || [];
+    if (!allShifts.length) {
+      return [];
+    }
+
+    const today = startOfDay(new Date());
+    const rangeStart = new Date(today);
+    rangeStart.setDate(rangeStart.getDate() - (selectedDays - 1));
+
+    return allShifts.filter((shift) => {
+      if (!shift?.date) {
+        return false;
+      }
+
+      const shiftDate = startOfDay(new Date(`${shift.date}T00:00:00`));
+      return shiftDate >= rangeStart && shiftDate <= today;
+    });
+  }, [selectedDays, shifts]);
+
   const tipOutRate = (Number(settings?.tipOutRate) || 0) / 100;
-  const floorMap = (shifts || []).reduce((accumulator, shift) => {
+  const floorMap = filteredShifts.reduce((accumulator, shift) => {
     const floorName = shift.floor || 'Unspecified';
 
     if (!accumulator[floorName]) {
@@ -60,27 +103,98 @@ function FloorComparison({ shifts, settings }) {
 
   if (!data.length) {
     return (
-      <Box
-        textAlign="center"
-        py={12}
-        px={6}
-        bg="#182133"
-        borderRadius="2xl"
-        border="1px solid"
-        borderColor="whiteAlpha.100"
-      >
-        <Text fontSize="lg" fontWeight="semibold">
-          No floor data yet
-        </Text>
-        <Text mt={2} color="gray.400">
-          Add shifts with a floor or section and this view will compare where you earn best.
-        </Text>
+      <Box display="grid" gap={4}>
+        <Box
+          bg="#182133"
+          borderRadius="2xl"
+          border="1px solid"
+          borderColor="whiteAlpha.100"
+          p={{ base: 5, md: 6 }}
+        >
+          <SimpleGrid columns={{ base: 1, md: rangePreset === 'custom' ? 2 : 1 }} spacing={4}>
+            <FormControl maxW={{ md: '260px' }}>
+              <FormLabel color="gray.300">Date range</FormLabel>
+              <Select value={rangePreset} onChange={(event) => setRangePreset(event.target.value)}>
+                <option value="7">Last 7 days</option>
+                <option value="10">Last 10 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="custom">Custom days</option>
+              </Select>
+            </FormControl>
+            {rangePreset === 'custom' ? (
+              <FormControl maxW={{ md: '220px' }}>
+                <FormLabel color="gray.300">Custom days</FormLabel>
+                <Input
+                  type="number"
+                  min={1}
+                  value={customDays}
+                  onChange={(event) => setCustomDays(event.target.value)}
+                  placeholder="30"
+                />
+              </FormControl>
+            ) : null}
+          </SimpleGrid>
+        </Box>
+
+        <Box
+          textAlign="center"
+          py={12}
+          px={6}
+          bg="#182133"
+          borderRadius="2xl"
+          border="1px solid"
+          borderColor="whiteAlpha.100"
+        >
+          <Text fontSize="lg" fontWeight="semibold">
+            No floor data for {getDateRangeLabel(selectedDays).toLowerCase()}
+          </Text>
+          <Text mt={2} color="gray.400">
+            Add shifts with a floor or widen the date range to compare where you earn best.
+          </Text>
+        </Box>
       </Box>
     );
   }
 
   return (
     <Box display="grid" gap={4}>
+      <Box
+        bg="#182133"
+        borderRadius="2xl"
+        border="1px solid"
+        borderColor="whiteAlpha.100"
+        p={{ base: 5, md: 6 }}
+      >
+        <SimpleGrid columns={{ base: 1, md: rangePreset === 'custom' ? 2 : 1 }} spacing={4}>
+          <FormControl maxW={{ md: '260px' }}>
+            <FormLabel color="gray.300">Date range</FormLabel>
+            <Select value={rangePreset} onChange={(event) => setRangePreset(event.target.value)}>
+              <option value="7">Last 7 days</option>
+              <option value="10">Last 10 days</option>
+              <option value="14">Last 14 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="custom">Custom days</option>
+            </Select>
+          </FormControl>
+          {rangePreset === 'custom' ? (
+            <FormControl maxW={{ md: '220px' }}>
+              <FormLabel color="gray.300">Custom days</FormLabel>
+              <Input
+                type="number"
+                min={1}
+                value={customDays}
+                onChange={(event) => setCustomDays(event.target.value)}
+                placeholder="30"
+              />
+            </FormControl>
+          ) : null}
+        </SimpleGrid>
+        <Text mt={3} color="gray.400" fontSize="sm">
+          Showing floor results for {getDateRangeLabel(selectedDays).toLowerCase()}.
+        </Text>
+      </Box>
+
       <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={4}>
         {data.map((floor) => (
           <Box

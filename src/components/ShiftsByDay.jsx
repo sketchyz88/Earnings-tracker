@@ -25,13 +25,13 @@ function getShiftSortTimestamp(shift) {
   return new Date(`${shift.date}T${timeValue}:00`).getTime();
 }
 
-function formatPayPeriodLabel(dateString) {
+function formatPayPeriodLabel(dateString, settings) {
   if (!dateString) {
     return 'No pay period';
   }
 
-  const periodStart = getPeriodStart(new Date(`${dateString}T00:00:00`));
-  const periodEnd = getPeriodEnd(periodStart);
+  const periodStart = getPeriodStart(new Date(`${dateString}T00:00:00`), settings);
+  const periodEnd = getPeriodEnd(periodStart, settings);
 
   return `${periodStart.toLocaleDateString('en-US', {
     month: 'short',
@@ -140,7 +140,7 @@ function ShiftsByDay({
                       bg="rgba(59, 130, 246, 0.1)"
                       color="brand.700"
                     >
-                      {formatPayPeriodLabel(shift.date)}
+                        {formatPayPeriodLabel(shift.date, settings)}
                     </Badge>
                   </Td>
                   <Td color={isDarkMode ? 'gray.200' : 'gray.800'}>

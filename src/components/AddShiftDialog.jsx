@@ -71,8 +71,8 @@ function formatCurrency(value) {
   return `$${value.toFixed(2)}`;
 }
 
-function formatPayPeriodLabel(periodStart) {
-  const periodEnd = getPeriodEnd(periodStart);
+function formatPayPeriodLabel(periodStart, settings) {
+  const periodEnd = getPeriodEnd(periodStart, settings);
   return `${periodStart.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -86,24 +86,24 @@ function toDateInputValue(date) {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().split('T')[0];
 }
 
-function shiftToPreviousPayPeriod(dateString) {
+function shiftToPreviousPayPeriod(dateString, settings) {
   if (!dateString) {
     return dateString;
   }
 
-  const currentPeriodStart = getPeriodStart(new Date(`${dateString}T00:00:00`));
+  const currentPeriodStart = getPeriodStart(new Date(`${dateString}T00:00:00`), settings);
   const previousPeriodEnd = new Date(currentPeriodStart);
   previousPeriodEnd.setDate(previousPeriodEnd.getDate() - 1);
   return toDateInputValue(previousPeriodEnd);
 }
 
-function shiftToNextPayPeriod(dateString) {
+function shiftToNextPayPeriod(dateString, settings) {
   if (!dateString) {
     return dateString;
   }
 
-  const currentPeriodStart = getPeriodStart(new Date(`${dateString}T00:00:00`));
-  const currentPeriodEnd = getPeriodEnd(currentPeriodStart);
+  const currentPeriodStart = getPeriodStart(new Date(`${dateString}T00:00:00`), settings);
+  const currentPeriodEnd = getPeriodEnd(currentPeriodStart, settings);
   const nextPeriodStart = new Date(currentPeriodEnd);
   nextPeriodStart.setDate(nextPeriodStart.getDate() + 1);
   return toDateInputValue(nextPeriodStart);
@@ -299,8 +299,8 @@ function AddShiftDialog({
       return '';
     }
 
-    return formatPayPeriodLabel(getPeriodStart(new Date(`${form.date}T00:00:00`)));
-  }, [form.date]);
+    return formatPayPeriodLabel(getPeriodStart(new Date(`${form.date}T00:00:00`), settings), settings);
+  }, [form.date, settings]);
 
   function updateField(field, value) {
     setForm((currentForm) => {
@@ -716,7 +716,7 @@ function AddShiftDialog({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => updateField('date', shiftToPreviousPayPeriod(form.date))}
+                  onClick={() => updateField('date', shiftToPreviousPayPeriod(form.date, settings))}
                   isDisabled={!form.date}
                 >
                   Move to previous pay period
@@ -724,7 +724,7 @@ function AddShiftDialog({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => updateField('date', shiftToNextPayPeriod(form.date))}
+                  onClick={() => updateField('date', shiftToNextPayPeriod(form.date, settings))}
                   isDisabled={!form.date}
                 >
                   Move to next pay period

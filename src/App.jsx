@@ -31,11 +31,13 @@ import AddShiftDialog from './components/AddShiftDialog';
 import AboutView from './components/AboutView';
 import AuthScreen from './components/AuthScreen';
 import BiWeeklyHours, {
+  DEFAULT_PAY_PERIOD_SETTINGS,
   buildPeriodSummary,
   getPeriodEnd,
   getPeriodKey,
   getPeriodStart,
   getPeriods,
+  normalizePayPeriodSettings,
   parsePeriodKey,
 } from './components/BiWeeklyHours';
 import CalendarView from './components/CalendarView';
@@ -57,6 +59,8 @@ const DEFAULT_SETTINGS = {
   tipOutRate: 4.5,
   tipGoal: 100,
   hoursGoal: 80,
+  payPeriodLengthDays: DEFAULT_PAY_PERIOD_SETTINGS.payPeriodLengthDays,
+  payPeriodAnchorDate: DEFAULT_PAY_PERIOD_SETTINGS.payPeriodAnchorDate,
 };
 
 const DEFAULT_PROFILE = {
@@ -294,6 +298,11 @@ function getDefaultProfileName(user, settingsRow) {
 }
 
 function normalizeSettingsRow(settingsRow, user) {
+  const payPeriodSettings = normalizePayPeriodSettings({
+    payPeriodLengthDays: settingsRow?.pay_period_length_days,
+    payPeriodAnchorDate: settingsRow?.pay_period_anchor_date,
+  });
+
   return {
     profileName: getDefaultProfileName(user, settingsRow),
     settings: {
@@ -301,6 +310,8 @@ function normalizeSettingsRow(settingsRow, user) {
       tipOutRate: Number(settingsRow?.tip_out_rate) || DEFAULT_SETTINGS.tipOutRate,
       tipGoal: Number(settingsRow?.tip_goal) || DEFAULT_SETTINGS.tipGoal,
       hoursGoal: Number(settingsRow?.hours_goal) || DEFAULT_SETTINGS.hoursGoal,
+      payPeriodLengthDays: payPeriodSettings.payPeriodLengthDays,
+      payPeriodAnchorDate: payPeriodSettings.payPeriodAnchorDate,
     },
   };
 }
@@ -337,6 +348,8 @@ function serializeShift(shift, userId) {
 }
 
 function serializeSettings(settings, userId, profileName) {
+  const payPeriodSettings = normalizePayPeriodSettings(settings);
+
   return {
     user_id: userId,
     display_name: profileName,
@@ -344,13 +357,21 @@ function serializeSettings(settings, userId, profileName) {
     tip_out_rate: Number(settings.tipOutRate) || DEFAULT_SETTINGS.tipOutRate,
     tip_goal: Number(settings.tipGoal) || DEFAULT_SETTINGS.tipGoal,
     hours_goal: Number(settings.hoursGoal) || DEFAULT_SETTINGS.hoursGoal,
+    pay_period_length_days: payPeriodSettings.payPeriodLengthDays,
+    pay_period_anchor_date: payPeriodSettings.payPeriodAnchorDate,
   };
 }
 
 function hasLocalDataToImport(dataset) {
   const hasShifts = Boolean(dataset.shifts.length);
   const hasCustomSettings = Object.entries(DEFAULT_SETTINGS).some(([key, defaultValue]) => {
-    return Number(dataset.settings[key]) !== Number(defaultValue);
+    const currentValue = dataset.settings[key];
+
+    if (typeof defaultValue === 'string') {
+      return (currentValue || '') !== defaultValue;
+    }
+
+    return Number(currentValue) !== Number(defaultValue);
   });
 
   return hasShifts || hasCustomSettings;
@@ -446,6 +467,30 @@ function escapeCsvValue(value) {
 
 function formatCurrency(value) {
   return `$${value.toFixed(2)}`;
+}
+
+function formatSignedCurrency(value) {
+  if (!Number.isFinite(value) || value === 0) {
+    return '$0.00';
+  }
+
+  return `${value > 0 ? '+' : '-'}$${Math.abs(value).toFixed(2)}`;
+}
+
+function formatSignedPercent(value) {
+  if (!Number.isFinite(value) || value === 0) {
+    return '0.0%';
+  }
+
+  return `${value > 0 ? '+' : '-'}${Math.abs(value).toFixed(1)}%`;
+}
+
+function formatMultiplier(value) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '0.0x';
+  }
+
+  return `${value.toFixed(1)}x`;
 }
 
 function formatDateLabel(dateString) {
@@ -648,6 +693,44 @@ function SummaryCard({ icon: Icon, isDarkMode, label, value, helper, accent }) {
   );
 }
 
+function InsightCard({ isDarkMode, label, title, helper, accent }) {
+  return (
+    <Box
+      bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.96)'}
+      borderRadius="28px"
+      p={{ base: 5, md: 5.5 }}
+      border="1px solid"
+      borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)'}
+      boxShadow={isDarkMode ? '0 20px 44px rgba(2, 6, 23, 0.34)' : '0 18px 36px rgba(15, 23, 42, 0.08)'}
+      position="relative"
+      overflow="hidden"
+    >
+      <Box position="absolute" insetX={0} top={0} height="4px" bg={accent} opacity={0.9} />
+      <Text
+        color={isDarkMode ? 'gray.400' : 'gray.600'}
+        fontSize="xs"
+        fontWeight="semibold"
+        letterSpacing="0.14em"
+        textTransform="uppercase"
+      >
+        {label}
+      </Text>
+      <Text
+        mt={3}
+        color={isDarkMode ? 'white' : 'gray.900'}
+        fontSize={{ base: 'xl', md: '2xl' }}
+        fontWeight="bold"
+        lineHeight="shorter"
+      >
+        {title}
+      </Text>
+      <Text mt={2} color={isDarkMode ? 'gray.300' : 'gray.600'} fontSize="sm" lineHeight="tall">
+        {helper}
+      </Text>
+    </Box>
+  );
+}
+
 async function fetchCloudData(user) {
   const [{ data: settingsRow, error: settingsError }, { data: shiftRows, error: shiftsError }] =
     await Promise.all([
@@ -831,29 +914,140 @@ function App() {
   const canImportLocalData =
     isCloudMode && !cloudProfileData.shifts.length && hasLocalDataToImport(localDataset);
 
+  const payPeriods = useMemo(
+    () => getPeriods(shifts || [], settings?.hourlyRate || 0, settings?.tipOutRate || 0, settings),
+    [settings, settings?.hourlyRate, settings?.tipOutRate, shifts]
+  );
+
   const payPeriodStats = useMemo(() => {
-    const hourlyRate = settings?.hourlyRate || 0;
-    const tipOutRate = settings?.tipOutRate || 0;
-    const periods = getPeriods(shifts, hourlyRate, tipOutRate);
-    const todayPeriodStart = getPeriodStart(new Date());
+    const todayPeriodStart = getPeriodStart(new Date(), settings);
     const todayPeriodKey = getPeriodKey(todayPeriodStart);
     const selectedPeriod =
       historyFilterType === 'payPeriod' && historyFilterValue
-        ? periods.find((period) => period.key === historyFilterValue)
+        ? payPeriods.find((period) => period.key === historyFilterValue)
         : null;
     const activePeriod =
       selectedPeriod ||
-      periods.find((period) => period.key === todayPeriodKey) ||
-      buildPeriodSummary(todayPeriodStart, [], hourlyRate, tipOutRate);
+      payPeriods.find((period) => period.key === todayPeriodKey) ||
+      buildPeriodSummary(
+        todayPeriodStart,
+        [],
+        settings?.hourlyRate || 0,
+        settings?.tipOutRate || 0,
+        settings
+      );
 
     return activePeriod;
   }, [
     historyFilterType,
     historyFilterValue,
+    payPeriods,
+    settings,
     settings?.hourlyRate,
     settings?.tipOutRate,
-    shifts,
   ]);
+
+  const payPeriodComparison = useMemo(() => {
+    if (!payPeriods.length) {
+      return {
+        label: 'No prior period',
+        takeHomeDelta: 0,
+        takeHomeDeltaPercent: 0,
+        tipsDelta: 0,
+        salesDelta: 0,
+        previousTakeHome: 0,
+        helper: 'Log another pay period to compare trends over time.',
+      };
+    }
+
+    const currentIndex = payPeriods.findIndex((period) => period.key === payPeriodStats.key);
+    const previousPeriod = currentIndex > 0 ? payPeriods[currentIndex - 1] : null;
+
+    if (!previousPeriod) {
+      return {
+        label: 'First saved period',
+        takeHomeDelta: 0,
+        takeHomeDeltaPercent: 0,
+        tipsDelta: 0,
+        salesDelta: 0,
+        previousTakeHome: 0,
+        helper: 'This is the first pay period in your saved history so far.',
+      };
+    }
+
+    const takeHomeDelta = payPeriodStats.totalTakeHome - previousPeriod.totalTakeHome;
+    const tipsDelta = payPeriodStats.netTips - previousPeriod.netTips;
+    const salesDelta = payPeriodStats.sales - previousPeriod.sales;
+    const takeHomeDeltaPercent =
+      previousPeriod.totalTakeHome > 0
+        ? (takeHomeDelta / previousPeriod.totalTakeHome) * 100
+        : 0;
+
+    return {
+      label: `vs ${previousPeriod.label}`,
+      takeHomeDelta,
+      takeHomeDeltaPercent,
+      tipsDelta,
+      salesDelta,
+      previousTakeHome: previousPeriod.totalTakeHome,
+      helper:
+        takeHomeDelta >= 0
+          ? 'You are ahead of the previous pay period right now.'
+          : 'You are trailing the previous pay period right now.',
+    };
+  }, [payPeriods, payPeriodStats]);
+
+  const payPeriodForecast = useMemo(() => {
+    const periodStart = parsePeriodKey(payPeriodStats.key);
+    const periodEnd = getPeriodEnd(periodStart, settings);
+    const today = new Date();
+    const clampedToday = today < periodStart ? periodStart : today > periodEnd ? periodEnd : today;
+    const totalDays =
+      Math.max(1, Math.round((periodEnd - periodStart) / (1000 * 60 * 60 * 24)) + 1);
+    const elapsedDays =
+      Math.max(1, Math.round((clampedToday - periodStart) / (1000 * 60 * 60 * 24)) + 1);
+    const completionRatio = Math.min(1, elapsedDays / totalDays);
+    const projectedTakeHome =
+      completionRatio > 0 ? payPeriodStats.totalTakeHome / completionRatio : payPeriodStats.totalTakeHome;
+    const projectedNetTips =
+      completionRatio > 0 ? payPeriodStats.netTips / completionRatio : payPeriodStats.netTips;
+
+    return {
+      elapsedDays,
+      totalDays,
+      completionRatio,
+      projectedTakeHome,
+      projectedNetTips,
+      projectedShiftCount:
+        completionRatio > 0 ? Math.max(payPeriodStats.shifts, payPeriodStats.shifts / completionRatio) : payPeriodStats.shifts,
+    };
+  }, [payPeriodStats, settings]);
+
+  const sortedShifts = useMemo(() => sortShiftsNewestFirst(shifts), [shifts]);
+  const recentShift = sortedShifts[0];
+
+  const dashboardInsights = useMemo(() => {
+    const effectiveHourly =
+      payPeriodStats.hours > 0 ? payPeriodStats.totalTakeHome / payPeriodStats.hours : 0;
+    const netTipRate = payPeriodStats.tipOut > 0 ? payPeriodStats.netTips / payPeriodStats.tipOut : 0;
+    const bestShift = sortedShifts.reduce((best, shift) => {
+      const shiftTakeHome = getNetTips(shift, settings) + getBasePay(shift, settings.hourlyRate);
+      if (!best || shiftTakeHome > best.takeHome) {
+        return {
+          takeHome: shiftTakeHome,
+          date: shift.date,
+          sales: getSales(shift),
+        };
+      }
+      return best;
+    }, null);
+
+    return {
+      effectiveHourly,
+      netTipRate,
+      bestShift,
+    };
+  }, [payPeriodStats, settings, sortedShifts]);
   const yearlyStats = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearShifts = shifts.filter((shift) => {
@@ -909,11 +1103,11 @@ function App() {
 
   const payPeriodOptions = useMemo(
     () =>
-      getPeriods(shifts || [], settings?.hourlyRate || 0, settings?.tipOutRate || 0)
+      payPeriods
         .slice()
         .reverse()
         .map((period) => ({ value: period.key, label: period.label })),
-    [settings?.hourlyRate, settings?.tipOutRate, shifts]
+    [payPeriods]
   );
 
   const filteredShifts = useMemo(() => {
@@ -929,18 +1123,14 @@ function App() {
       }
 
       if (historyFilterType === 'payPeriod' && historyFilterValue) {
-        const selectedPeriod = getPeriods(
-          shifts || [],
-          settings?.hourlyRate || 0,
-          settings?.tipOutRate || 0
-        ).find((period) => period.key === historyFilterValue);
+        const selectedPeriod = payPeriods.find((period) => period.key === historyFilterValue);
 
         if (!selectedPeriod) {
           return [];
         }
 
         const periodStart = parsePeriodKey(selectedPeriod.key);
-        const periodEnd = getPeriodEnd(periodStart);
+        const periodEnd = getPeriodEnd(periodStart, settings);
 
         return shifts.filter((shift) => {
           const shiftDate = new Date(`${shift.date}T00:00:00`);
@@ -955,14 +1145,13 @@ function App() {
   }, [
     historyFilterType,
     historyFilterValue,
+    payPeriods,
     selectedDate,
+    settings,
     settings?.hourlyRate,
     settings?.tipOutRate,
     shifts,
   ]);
-
-  const sortedShifts = useMemo(() => sortShiftsNewestFirst(shifts), [shifts]);
-  const recentShift = sortedShifts[0];
   const activeHistoryLabel = useMemo(() => {
     if (selectedDate) {
       return `Filtered to ${formatDateLabel(selectedDate)}`;
@@ -1002,7 +1191,7 @@ function App() {
       return {
         modeLabel: 'Selected pay period',
         title: payPeriodStats.label,
-        helper: 'These totals are now following the pay period you picked in the filter below.',
+        helper: 'These totals are following the pay period you picked, so the hero stays in sync with your filter.',
         takeHome: payPeriodStats.totalTakeHome,
         netTips: payPeriodStats.netTips,
         tipOut: payPeriodStats.tipOut,
@@ -1016,7 +1205,7 @@ function App() {
     return {
       modeLabel: 'Current pay period',
       title: payPeriodStats.label,
-      helper: 'This snapshot shows the pay period you are currently in right now.',
+      helper: 'This hero tracks the pay period you are in right now, with the strongest signals pulled to the top.',
       takeHome: payPeriodStats.totalTakeHome,
       netTips: payPeriodStats.netTips,
       tipOut: payPeriodStats.tipOut,
@@ -1865,7 +2054,9 @@ function App() {
                   value={formatCurrency(topSummary.takeHome)}
                   detail={`${topSummary.shifts} ${
                     topSummary.shifts === 1 ? 'shift' : 'shifts'
-                  } in this snapshot`}
+                  } in this snapshot • ${formatSignedCurrency(
+                    payPeriodComparison.takeHomeDelta
+                  )} vs last period`}
                   helper={topSummary.helper}
                   accent="#38bdf8"
                   metrics={[
@@ -1875,19 +2066,21 @@ function App() {
                       helper: 'Total hours in this pay period',
                     },
                     {
-                      label: 'Net tips',
-                      value: formatCurrency(topSummary.netTips),
-                      helper: 'After tip-out',
+                      label: 'Effective hourly',
+                      value: formatCurrency(dashboardInsights.effectiveHourly),
+                      helper: 'Take-home divided by hours worked',
                     },
                     {
-                      label: 'Tip-out',
-                      value: formatCurrency(topSummary.tipOut),
-                      helper: `${settings.tipOutRate}% of sales`,
+                      label: 'Sales',
+                      value: formatCurrency(topSummary.sales),
+                      helper: `${formatSignedCurrency(payPeriodComparison.salesDelta)} vs last period`,
                     },
                     {
-                      label: 'Base pay',
-                      value: formatCurrency(topSummary.basePay),
-                      helper: `${formatCurrency(topSummary.sales)} total sales`,
+                      label: 'Avg per shift',
+                      value: formatCurrency(
+                        topSummary.shifts > 0 ? topSummary.takeHome / topSummary.shifts : 0
+                      ),
+                      helper: 'Average take-home from the shifts in view',
                     },
                   ]}
                 />
@@ -1896,26 +2089,55 @@ function App() {
                 <SummaryCard
                   icon={TrendingUp}
                   isDarkMode={isDarkMode}
-                  label="Net tips"
-                  value={formatCurrency(topSummary.netTips)}
-                  helper="Money left after the tip-out is removed from your tips."
+                  label={payPeriodComparison.label}
+                  value={formatSignedCurrency(payPeriodComparison.takeHomeDelta)}
+                  helper={`${formatSignedPercent(
+                    payPeriodComparison.takeHomeDeltaPercent
+                  )} take-home change from ${formatCurrency(
+                    payPeriodComparison.previousTakeHome
+                  )}.`}
                   accent="#68d391"
                 />
                 <SummaryCard
-                  icon={TrendingDown}
+                  icon={Target}
                   isDarkMode={isDarkMode}
-                  label="Tip-out"
-                  value={formatCurrency(topSummary.tipOut)}
-                  helper="Total paid out from sales for the pay period you are viewing."
-                  accent="#fc8181"
+                  label="Projected finish"
+                  value={formatCurrency(payPeriodForecast.projectedTakeHome)}
+                  helper={`Through day ${payPeriodForecast.elapsedDays} of ${
+                    payPeriodForecast.totalDays
+                  }, pacing toward ${formatCurrency(
+                    payPeriodForecast.projectedNetTips
+                  )} in net tips.`}
+                  accent="#f6ad55"
                 />
                 <SummaryCard
-                  icon={Target}
+                  icon={TrendingDown}
                   isDarkMode={isDarkMode}
                   label="Yearly wages"
                   value={formatCurrency(yearlyStats.totalTakeHome)}
                   helper={`${yearlyStats.year} running total across all saved shifts.`}
                   accent="#c084fc"
+                />
+                <InsightCard
+                  isDarkMode={isDarkMode}
+                  label="Insight"
+                  title={
+                    dashboardInsights.bestShift
+                      ? `Best shift: ${formatCurrency(dashboardInsights.bestShift.takeHome)}`
+                      : 'Best shift insight appears once shifts are logged'
+                  }
+                  helper={
+                    dashboardInsights.bestShift
+                      ? `${formatDateLabel(
+                          dashboardInsights.bestShift.date
+                        )} delivered ${formatCurrency(
+                          dashboardInsights.bestShift.sales
+                        )} in sales. Net tips are running at ${formatMultiplier(
+                          dashboardInsights.netTipRate
+                        )} tip-out this period.`
+                      : 'Add a few more shifts and the dashboard will start surfacing smarter patterns.'
+                  }
+                  accent="#38bdf8"
                 />
               </Box>
             </SimpleGrid>

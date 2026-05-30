@@ -3,6 +3,7 @@ import {
   Button,
   FormControl,
   FormLabel,
+  Input,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -15,6 +16,7 @@ import {
   Text,
   VStack,
 } from '@chakra-ui/react';
+import { DEFAULT_PAY_PERIOD_SETTINGS } from './BiWeeklyHours';
 
 function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings }) {
   const [form, setForm] = useState({
@@ -22,6 +24,8 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
     tipOutRate: 4.5,
     tipGoal: 100,
     hoursGoal: 80,
+    payPeriodLengthDays: DEFAULT_PAY_PERIOD_SETTINGS.payPeriodLengthDays,
+    payPeriodAnchorDate: DEFAULT_PAY_PERIOD_SETTINGS.payPeriodAnchorDate,
   });
 
   useEffect(() => {
@@ -31,6 +35,10 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
         tipOutRate: settings.tipOutRate || 4.5,
         tipGoal: settings.tipGoal || 100,
         hoursGoal: settings.hoursGoal || 80,
+        payPeriodLengthDays:
+          Number(settings.payPeriodLengthDays) || DEFAULT_PAY_PERIOD_SETTINGS.payPeriodLengthDays,
+        payPeriodAnchorDate:
+          settings.payPeriodAnchorDate || DEFAULT_PAY_PERIOD_SETTINGS.payPeriodAnchorDate,
       });
     }
   }, [settings, isOpen]);
@@ -94,7 +102,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
             </FormControl>
 
             <FormControl>
-              <FormLabel>Bi-Weekly Net Tip Goal ($)</FormLabel>
+              <FormLabel>Pay Period Net Tip Goal ($)</FormLabel>
               <NumberInput
                 min={0}
                 precision={2}
@@ -114,7 +122,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
             </FormControl>
 
             <FormControl>
-              <FormLabel>Bi-Weekly Hours Goal</FormLabel>
+              <FormLabel>Pay Period Hours Goal</FormLabel>
               <NumberInput
                 min={0}
                 precision={2}
@@ -130,6 +138,43 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
               </NumberInput>
               <Text fontSize="xs" color="gray.500">
                 Your target hours per pay period.
+              </Text>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Pay Period Length (days)</FormLabel>
+              <NumberInput
+                min={1}
+                precision={0}
+                value={form.payPeriodLengthDays}
+                onChange={(value) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    payPeriodLengthDays: Math.max(1, parseInt(value, 10) || 1),
+                  }))
+                }
+              >
+                <NumberInputField />
+              </NumberInput>
+              <Text fontSize="xs" color="gray.500">
+                The app uses this many days in each repeating pay period.
+              </Text>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Pay Period Start Date</FormLabel>
+              <Input
+                type="date"
+                value={form.payPeriodAnchorDate}
+                onChange={(event) =>
+                  setForm((currentForm) => ({
+                    ...currentForm,
+                    payPeriodAnchorDate: event.target.value,
+                  }))
+                }
+              />
+              <Text fontSize="xs" color="gray.500">
+                This date becomes day one for the repeating pay-period cycle.
               </Text>
             </FormControl>
           </VStack>

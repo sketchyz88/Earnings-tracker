@@ -23,6 +23,35 @@ function startOfDay(date) {
   return normalized;
 }
 
+export const DEFAULT_PAY_PERIOD_SETTINGS = {
+  payPeriodLengthDays: 15,
+  payPeriodAnchorDate: '2026-04-16',
+};
+
+function isValidDateInputValue(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  return !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
+}
+
+export function normalizePayPeriodSettings(settings = {}) {
+  const rawLength = Number(settings?.payPeriodLengthDays);
+  const payPeriodLengthDays = Number.isFinite(rawLength)
+    ? Math.max(1, Math.round(rawLength))
+    : DEFAULT_PAY_PERIOD_SETTINGS.payPeriodLengthDays;
+
+  const payPeriodAnchorDate = isValidDateInputValue(settings?.payPeriodAnchorDate)
+    ? settings.payPeriodAnchorDate
+    : DEFAULT_PAY_PERIOD_SETTINGS.payPeriodAnchorDate;
+
+  return {
+    payPeriodLengthDays,
+    payPeriodAnchorDate,
+  };
+}
+
 export function getPeriodKey(date) {
   const normalized = startOfDay(date);
   const year = normalized.getFullYear();
@@ -35,33 +64,28 @@ export function parsePeriodKey(periodKey) {
   return new Date(`${periodKey}T00:00:00`);
 }
 
-export function getPeriodStart(date) {
+export function getPeriodStart(date, settings) {
   const normalizedDate = startOfDay(date);
-
-  const periodStart = new Date(normalizedDate);
-  if (normalizedDate.getDate() <= 15) {
-    periodStart.setDate(1);
-  } else {
-    periodStart.setDate(16);
-  }
-
-  periodStart.setHours(0, 0, 0, 0);
+  const { payPeriodLengthDays, payPeriodAnchorDate } = normalizePayPeriodSettings(settings);
+  const anchorDate = startOfDay(new Date(`${payPeriodAnchorDate}T00:00:00`));
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const diffDays = Math.floor((normalizedDate.getTime() - anchorDate.getTime()) / millisecondsPerDay);
+  const cycleIndex = Math.floor(diffDays / payPeriodLengthDays);
+  const periodStart = new Date(anchorDate);
+  periodStart.setDate(periodStart.getDate() + cycleIndex * payPeriodLengthDays);
   return periodStart;
 }
 
-export function getPeriodEnd(periodStart) {
+export function getPeriodEnd(periodStart, settings) {
+  const { payPeriodLengthDays } = normalizePayPeriodSettings(settings);
   const periodEnd = new Date(periodStart);
-  if (periodStart.getDate() === 1) {
-    periodEnd.setDate(15);
-  } else {
-    periodEnd.setMonth(periodEnd.getMonth() + 1, 0);
-  }
+  periodEnd.setDate(periodEnd.getDate() + payPeriodLengthDays - 1);
   periodEnd.setHours(0, 0, 0, 0);
   return periodEnd;
 }
 
-export function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOutRate) {
-  const periodEnd = getPeriodEnd(periodStart);
+export function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOutRate, settings) {
+  const periodEnd = getPeriodEnd(periodStart, settings);
 
   const hours = periodShifts.reduce((sum, shift) => sum + (Number(shift.hours) || 0), 0);
   const sales = periodShifts.reduce((sum, shift) => sum + (Number(shift.sales) || 0), 0);
@@ -95,7 +119,7 @@ export function buildPeriodSummary(periodStart, periodShifts, hourlyRate, tipOut
   };
 }
 
-export function getPeriods(shifts, hourlyRate, tipOutRate) {
+export function getPeriods(shifts, hourlyRate, tipOutRate, settings) {
   if (!shifts.length) {
     return [];
   }
@@ -107,7 +131,7 @@ export function getPeriods(shifts, hourlyRate, tipOutRate) {
 
   sortedShifts.forEach((shift) => {
     const shiftDate = new Date(`${shift.date}T00:00:00`);
-    const periodStart = getPeriodStart(shiftDate);
+    const periodStart = getPeriodStart(shiftDate, settings);
     const periodKey = getPeriodKey(periodStart);
 
     if (!groupedPeriods.has(periodKey)) {
@@ -119,7 +143,7 @@ export function getPeriods(shifts, hourlyRate, tipOutRate) {
 
   return Array.from(groupedPeriods.entries())
     .map(([periodKey, periodShifts]) =>
-      buildPeriodSummary(parsePeriodKey(periodKey), periodShifts, hourlyRate, tipOutRate)
+      buildPeriodSummary(parsePeriodKey(periodKey), periodShifts, hourlyRate, tipOutRate, settings)
     )
     .sort((left, right) => parsePeriodKey(left.key) - parsePeriodKey(right.key));
 }
@@ -137,11 +161,28 @@ function Metric({ label, value, accent = 'white' }) {
   );
 }
 
+function formatCurrency(value) {
+  return `$${value.toFixed(2)}`;
+}
+
+function formatSignedCurrency(value) {
+  if (!Number.isFinite(value) || value === 0) {
+    return '$0.00';
+  }
+
+  return `${value > 0 ? '+' : '-'}$${Math.abs(value).toFixed(2)}`;
+}
+
 function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod }) {
-  const periods = getPeriods(shifts || [], settings?.hourlyRate || 0, settings?.tipOutRate || 0);
+  const periods = getPeriods(
+    shifts || [],
+    settings?.hourlyRate || 0,
+    settings?.tipOutRate || 0,
+    settings
+  );
   const hoursGoal = settings?.hoursGoal || 80;
   const tipGoal = settings?.tipGoal || 100;
-  const todayPeriodStart = getPeriodStart(new Date());
+  const todayPeriodStart = getPeriodStart(new Date(), settings);
   const todayPeriodKey = getPeriodKey(todayPeriodStart);
 
   if (!periods.length) {
@@ -167,9 +208,25 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
 
   const currentPeriod =
     periods.find((period) => period.key === todayPeriodKey) ||
-    buildPeriodSummary(todayPeriodStart, [], settings?.hourlyRate || 0, settings?.tipOutRate || 0);
+    buildPeriodSummary(
+      todayPeriodStart,
+      [],
+      settings?.hourlyRate || 0,
+      settings?.tipOutRate || 0,
+      settings
+    );
+  const currentPeriodIndex = periods.findIndex((period) => period.key === currentPeriod.key);
+  const previousPeriod = currentPeriodIndex > 0 ? periods[currentPeriodIndex - 1] : null;
   const hoursProgress = Math.min(100, (currentPeriod.hours / hoursGoal) * 100);
   const tipsProgress = Math.min(100, (currentPeriod.netTips / tipGoal) * 100);
+  const effectiveHourly =
+    currentPeriod.hours > 0 ? currentPeriod.totalTakeHome / currentPeriod.hours : 0;
+  const avgShiftTakeHome =
+    currentPeriod.shifts > 0 ? currentPeriod.totalTakeHome / currentPeriod.shifts : 0;
+  const takeHomeDelta = previousPeriod
+    ? currentPeriod.totalTakeHome - previousPeriod.totalTakeHome
+    : 0;
+  const netTipsDelta = previousPeriod ? currentPeriod.netTips - previousPeriod.netTips : 0;
 
   return (
     <Box display="grid" gap={4}>
@@ -183,7 +240,7 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
       >
         <Flex justify="space-between" align={{ base: 'flex-start', md: 'center' }} gap={4} mb={5} direction={{ base: 'column', md: 'row' }}>
           <Box>
-            <Heading size="md">Current pay period</Heading>
+            <Heading size="md">Pay period performance</Heading>
             <Text mt={1} color="gray.400">
               {currentPeriod.label}
             </Text>
@@ -193,25 +250,75 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
           </Text>
         </Flex>
 
-        <Text mb={4} color="gray.400" fontSize="sm">
-          Tip-out is calculated at {settings?.tipOutRate || 0}% of total sales for each shift.
+        <Text mb={5} color="gray.400" fontSize="sm">
+          Tip-out is calculated at {settings?.tipOutRate || 0}% of total sales for each shift, so
+          this section focuses on whether the period is improving and whether you are pacing toward
+          your goals.
         </Text>
+
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mb={6}>
+          <Box
+            bg={isDarkMode ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255,255,255,0.82)'}
+            borderRadius="2xl"
+            p={4}
+            border="1px solid"
+            borderColor="rgba(22, 33, 43, 0.06)"
+          >
+            <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="0.08em">
+              Compare
+            </Text>
+            <Text mt={2} fontSize="2xl" fontWeight="bold" color={takeHomeDelta >= 0 ? '#68d391' : '#fc8181'}>
+              {formatSignedCurrency(takeHomeDelta)}
+            </Text>
+            <Text mt={1} color="gray.400" fontSize="sm">
+              {previousPeriod
+                ? `Take-home vs ${previousPeriod.label}`
+                : 'This becomes more useful once you have a previous pay period.'}
+            </Text>
+          </Box>
+
+          <Box
+            bg={isDarkMode ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255,255,255,0.82)'}
+            borderRadius="2xl"
+            p={4}
+            border="1px solid"
+            borderColor="rgba(22, 33, 43, 0.06)"
+          >
+            <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="0.08em">
+              Effective hourly
+            </Text>
+            <Text mt={2} fontSize="2xl" fontWeight="bold" color="#7dd3fc">
+              {formatCurrency(effectiveHourly)}
+            </Text>
+            <Text mt={1} color="gray.400" fontSize="sm">
+              Real take-home per hour for the period you are viewing.
+            </Text>
+          </Box>
+
+          <Box
+            bg={isDarkMode ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255,255,255,0.82)'}
+            borderRadius="2xl"
+            p={4}
+            border="1px solid"
+            borderColor="rgba(22, 33, 43, 0.06)"
+          >
+            <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="0.08em">
+              Avg shift take-home
+            </Text>
+            <Text mt={2} fontSize="2xl" fontWeight="bold" color="#f687b3">
+              {formatCurrency(avgShiftTakeHome)}
+            </Text>
+            <Text mt={1} color="gray.400" fontSize="sm">
+              {formatSignedCurrency(netTipsDelta)} net-tip change from the previous pay period.
+            </Text>
+          </Box>
+        </SimpleGrid>
 
         <SimpleGrid columns={{ base: 2, md: 4 }} spacing={5} mb={6}>
           <Metric label="Hours" value={currentPeriod.hours.toFixed(1)} accent="#f6ad55" />
-          <Metric label="Gross tips" value={`$${currentPeriod.tips.toFixed(2)}`} accent="#2563eb" />
-          <Metric label="Tip-out" value={`$${currentPeriod.tipOut.toFixed(2)}`} accent="#fc8181" />
-          <Metric label="Net tips" value={`$${currentPeriod.netTips.toFixed(2)}`} accent="#1e40af" />
-        </SimpleGrid>
-
-        <SimpleGrid columns={{ base: 2, md: 3 }} spacing={5} mb={6}>
-          <Metric label="Sales" value={`$${currentPeriod.sales.toFixed(2)}`} accent="#fbd38d" />
-          <Metric label="Base pay" value={`$${currentPeriod.basePay.toFixed(2)}`} accent="#7dd3fc" />
-          <Metric
-            label="Take-home"
-            value={`$${currentPeriod.totalTakeHome.toFixed(2)}`}
-            accent="#f687b3"
-          />
+          <Metric label="Sales" value={formatCurrency(currentPeriod.sales)} accent="#fbd38d" />
+          <Metric label="Net tips" value={formatCurrency(currentPeriod.netTips)} accent="#2563eb" />
+          <Metric label="Take-home" value={formatCurrency(currentPeriod.totalTakeHome)} accent="#68d391" />
         </SimpleGrid>
 
         <Box display="grid" gap={4}>

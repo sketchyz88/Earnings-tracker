@@ -17,9 +17,17 @@ create table if not exists public.settings (
   tip_out_rate numeric not null default 4.5,
   tip_goal numeric not null default 100,
   hours_goal numeric not null default 80,
+  pay_period_length_days integer not null default 15,
+  pay_period_anchor_date date not null default date '2026-04-16',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.settings
+  add column if not exists pay_period_length_days integer not null default 15;
+
+alter table public.settings
+  add column if not exists pay_period_anchor_date date not null default date '2026-04-16';
 
 create table if not exists public.shifts (
   id uuid primary key default gen_random_uuid(),

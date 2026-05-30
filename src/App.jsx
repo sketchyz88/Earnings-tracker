@@ -10,6 +10,7 @@ import {
   Flex,
   HStack,
   IconButton,
+  Input,
   Select,
   SimpleGrid,
   Spinner,
@@ -502,6 +503,12 @@ function formatDateLabel(dateString) {
   });
 }
 
+function startOfDay(dateValue) {
+  const date = new Date(dateValue);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
 function startOfWeek(dateString) {
   const date = new Date(`${dateString}T00:00:00`);
   const day = date.getDay();
@@ -781,6 +788,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState('');
   const [historyFilterType, setHistoryFilterType] = useState('all');
   const [historyFilterValue, setHistoryFilterValue] = useState('');
+  const [historyCustomDays, setHistoryCustomDays] = useState('14');
   const [editingShift, setEditingShift] = useState(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1110,8 +1118,38 @@ function App() {
     [payPeriods]
   );
 
+  const selectedHistoryDays = useMemo(() => {
+    if (historyFilterType !== 'days') {
+      return 0;
+    }
+
+    if (historyFilterValue === 'custom') {
+      const parsed = Number(historyCustomDays);
+      return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 14;
+    }
+
+    const parsed = Number(historyFilterValue);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 14;
+  }, [historyCustomDays, historyFilterType, historyFilterValue]);
+
   const filteredShifts = useMemo(() => {
     if (!selectedDate) {
+      if (historyFilterType === 'days') {
+        const totalDays = selectedHistoryDays;
+        const rangeEnd = startOfDay(new Date());
+        const rangeStart = new Date(rangeEnd);
+        rangeStart.setDate(rangeStart.getDate() - (totalDays - 1));
+
+        return shifts.filter((shift) => {
+          if (!shift.date) {
+            return false;
+          }
+
+          const shiftDate = startOfDay(`${shift.date}T00:00:00`);
+          return shiftDate >= rangeStart && shiftDate <= rangeEnd;
+        });
+      }
+
       if (historyFilterType === 'month' && historyFilterValue) {
         return shifts.filter((shift) => shift.date?.startsWith(historyFilterValue));
       }
@@ -1146,6 +1184,7 @@ function App() {
     historyFilterType,
     historyFilterValue,
     payPeriods,
+    selectedHistoryDays,
     selectedDate,
     settings,
     settings?.hourlyRate,
@@ -1155,6 +1194,10 @@ function App() {
   const activeHistoryLabel = useMemo(() => {
     if (selectedDate) {
       return `Filtered to ${formatDateLabel(selectedDate)}`;
+    }
+
+    if (historyFilterType === 'days') {
+      return `Filtered to last ${selectedHistoryDays} day${selectedHistoryDays === 1 ? '' : 's'}`;
     }
 
     if (historyFilterType === 'month' && historyFilterValue) {
@@ -1182,6 +1225,7 @@ function App() {
     historyFilterValue,
     monthOptions,
     payPeriodOptions,
+    selectedHistoryDays,
     selectedDate,
     weekOptions,
   ]);
@@ -1591,7 +1635,7 @@ function App() {
   function handleHistoryFilterTypeChange(nextType) {
     setSelectedDate('');
     setHistoryFilterType(nextType);
-    setHistoryFilterValue('');
+    setHistoryFilterValue(nextType === 'days' ? '14' : '');
   }
 
   function handleHistoryFilterValueChange(nextValue) {
@@ -2170,10 +2214,36 @@ function App() {
                     maxW={{ base: 'full', md: '180px' }}
                   >
                     <option value="all">All shifts</option>
+                    <option value="days">By days</option>
                     <option value="month">By month</option>
                     <option value="week">By week</option>
                     <option value="payPeriod">By pay period</option>
                   </Select>
+                  {historyFilterType === 'days' ? (
+                    <>
+                      <Select
+                        value={historyFilterValue}
+                        onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
+                        maxW={{ base: 'full', md: '180px' }}
+                      >
+                        <option value="7">Last 7 days</option>
+                        <option value="14">Last 14 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="60">Last 60 days</option>
+                        <option value="custom">Custom days</option>
+                      </Select>
+                      {historyFilterValue === 'custom' ? (
+                        <Input
+                          type="number"
+                          min={1}
+                          value={historyCustomDays}
+                          onChange={(event) => setHistoryCustomDays(event.target.value)}
+                          maxW={{ base: 'full', md: '150px' }}
+                          placeholder="Days"
+                        />
+                      ) : null}
+                    </>
+                  ) : null}
                   {historyFilterType === 'month' ? (
                     <Select
                       placeholder="Choose month"

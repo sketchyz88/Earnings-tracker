@@ -42,10 +42,15 @@ function formatPayPeriodLabel(dateString, settings) {
   })}`;
 }
 
+function getJobName(jobId, jobs) {
+  return jobs.find((job) => job.id === jobId)?.name || 'Primary Job';
+}
+
 function ShiftsByDay({
   isDarkMode = false,
   shifts,
   settings,
+  jobs = [],
   onEdit,
   onDelete,
   title = 'All shifts',
@@ -107,6 +112,7 @@ function ShiftsByDay({
           <Thead bg="rgba(22, 33, 43, 0.03)">
             <Tr>
               <Th color="gray.400">Date</Th>
+              <Th color="gray.400">Job</Th>
               <Th color="gray.400">Pay Period</Th>
               <Th color="gray.400">Shift</Th>
               <Th color="gray.400">Hours</Th>
@@ -132,6 +138,7 @@ function ShiftsByDay({
               return (
                 <Tr key={shift.id} _hover={{ bg: 'rgba(22, 33, 43, 0.03)' }}>
                   <Td fontWeight="semibold">{shift.date}</Td>
+                  <Td>{getJobName(shift.jobId, jobs)}</Td>
                   <Td>
                     <Badge
                       borderRadius="full"

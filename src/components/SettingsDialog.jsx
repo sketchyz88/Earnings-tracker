@@ -3,6 +3,7 @@ import {
   Button,
   FormControl,
   FormLabel,
+  HStack,
   Input,
   Modal,
   ModalBody,
@@ -18,6 +19,13 @@ import {
 } from '@chakra-ui/react';
 import { DEFAULT_PAY_PERIOD_SETTINGS } from './BiWeeklyHours';
 
+function createNewJob(index) {
+  return {
+    id: crypto.randomUUID(),
+    name: `Job ${index + 1}`,
+  };
+}
+
 function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings }) {
   const [form, setForm] = useState({
     hourlyRate: 15,
@@ -26,6 +34,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
     hoursGoal: 80,
     payPeriodLengthDays: DEFAULT_PAY_PERIOD_SETTINGS.payPeriodLengthDays,
     payPeriodAnchorDate: DEFAULT_PAY_PERIOD_SETTINGS.payPeriodAnchorDate,
+    jobs: [createNewJob(0)],
   });
 
   useEffect(() => {
@@ -39,12 +48,27 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
           Number(settings.payPeriodLengthDays) || DEFAULT_PAY_PERIOD_SETTINGS.payPeriodLengthDays,
         payPeriodAnchorDate:
           settings.payPeriodAnchorDate || DEFAULT_PAY_PERIOD_SETTINGS.payPeriodAnchorDate,
+        jobs:
+          Array.isArray(settings.jobs) && settings.jobs.length
+            ? settings.jobs.map((job) => ({
+                id: job.id || crypto.randomUUID(),
+                name: job.name || '',
+              }))
+            : [createNewJob(0)],
       });
     }
   }, [settings, isOpen]);
 
   function handleSave() {
-    onSave(form);
+    onSave({
+      ...form,
+      jobs: form.jobs
+        .map((job, index) => ({
+          id: job.id || crypto.randomUUID(),
+          name: job.name.trim() || `Job ${index + 1}`,
+        }))
+        .filter((job, index, jobs) => jobs.findIndex((candidate) => candidate.id === job.id) === index),
+    });
     onClose();
   }
 
@@ -138,6 +162,63 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
               </NumberInput>
               <Text fontSize="xs" color="gray.500">
                 Your target hours per pay period.
+              </Text>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Jobs</FormLabel>
+              <VStack spacing={3} align="stretch">
+                {form.jobs.map((job, index) => (
+                  <HStack key={job.id} align="flex-end">
+                    <FormControl>
+                      <Input
+                        value={job.name}
+                        placeholder={`Job ${index + 1}`}
+                        onChange={(event) =>
+                          setForm((currentForm) => ({
+                            ...currentForm,
+                            jobs: currentForm.jobs.map((currentJob) =>
+                              currentJob.id === job.id
+                                ? { ...currentJob, name: event.target.value }
+                                : currentJob
+                            ),
+                          }))
+                        }
+                      />
+                    </FormControl>
+                    <Button
+                      variant="outline"
+                      colorScheme="red"
+                      onClick={() =>
+                        setForm((currentForm) => ({
+                          ...currentForm,
+                          jobs:
+                            currentForm.jobs.length > 1
+                              ? currentForm.jobs.filter((currentJob) => currentJob.id !== job.id)
+                              : currentForm.jobs,
+                        }))
+                      }
+                      isDisabled={form.jobs.length <= 1}
+                    >
+                      Remove
+                    </Button>
+                  </HStack>
+                ))}
+                <Button
+                  alignSelf="flex-start"
+                  variant="outline"
+                  onClick={() =>
+                    setForm((currentForm) => ({
+                      ...currentForm,
+                      jobs: [...currentForm.jobs, createNewJob(currentForm.jobs.length)],
+                    }))
+                  }
+                >
+                  Add Job
+                </Button>
+              </VStack>
+              <Text fontSize="xs" color="gray.500">
+                Use jobs to keep multiple serving workplaces in one account.
               </Text>
             </FormControl>
 

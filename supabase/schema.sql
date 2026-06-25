@@ -19,6 +19,7 @@ create table if not exists public.settings (
   hours_goal numeric not null default 80,
   pay_period_length_days integer not null default 15,
   pay_period_anchor_date date not null default date '2026-04-16',
+  jobs jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -28,6 +29,9 @@ alter table public.settings
 
 alter table public.settings
   add column if not exists pay_period_anchor_date date not null default date '2026-04-16';
+
+alter table public.settings
+  add column if not exists jobs jsonb not null default '[]'::jsonb;
 
 create table if not exists public.shifts (
   id uuid primary key default gen_random_uuid(),
@@ -39,11 +43,15 @@ create table if not exists public.shifts (
   sales numeric not null default 0,
   tips numeric not null default 0,
   earnings numeric not null default 0,
+  job_id text,
   floor text,
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.shifts
+  add column if not exists job_id text;
 
 create index if not exists shifts_user_id_shift_date_idx
   on public.shifts (user_id, shift_date desc, created_at desc);

@@ -55,6 +55,17 @@ const STORAGE_KEYS = {
   uiMode: 'earnings_tracker_ui_mode',
 };
 
+const DEFAULT_JOB = {
+  id: 'job-1',
+  name: 'Primary Job',
+};
+
+const ALL_JOBS_VALUE = 'all-jobs';
+
+function createDefaultJobs() {
+  return [{ ...DEFAULT_JOB }];
+}
+
 const DEFAULT_SETTINGS = {
   hourlyRate: 15,
   tipOutRate: 4.5,
@@ -62,6 +73,7 @@ const DEFAULT_SETTINGS = {
   hoursGoal: 80,
   payPeriodLengthDays: DEFAULT_PAY_PERIOD_SETTINGS.payPeriodLengthDays,
   payPeriodAnchorDate: DEFAULT_PAY_PERIOD_SETTINGS.payPeriodAnchorDate,
+  jobs: createDefaultJobs(),
 };
 
 const DEFAULT_PROFILE = {
@@ -215,16 +227,78 @@ function loadShifts() {
 function loadSettings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.legacySettings);
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+    return raw ? normalizeSettings(JSON.parse(raw)) : createDefaultSettings();
   } catch {
-    return DEFAULT_SETTINGS;
+    return createDefaultSettings();
   }
 }
 
 function createEmptyProfileData() {
   return {
     shifts: [],
-    settings: DEFAULT_SETTINGS,
+    settings: createDefaultSettings(),
+  };
+}
+
+function createDefaultSettings() {
+  return {
+    ...DEFAULT_SETTINGS,
+    jobs: createDefaultJobs(),
+  };
+}
+
+function normalizeJobs(rawJobs) {
+  if (!Array.isArray(rawJobs) || !rawJobs.length) {
+    return createDefaultJobs();
+  }
+
+  const usedIds = new Set();
+  const normalizedJobs = rawJobs.reduce((jobs, rawJob, index) => {
+    const baseId =
+      typeof rawJob?.id === 'string' && rawJob.id.trim() ? rawJob.id.trim() : `job-${index + 1}`;
+    let nextId = baseId;
+    let duplicateIndex = 2;
+
+    while (usedIds.has(nextId)) {
+      nextId = `${baseId}-${duplicateIndex}`;
+      duplicateIndex += 1;
+    }
+
+    usedIds.add(nextId);
+
+    jobs.push({
+      id: nextId,
+      name:
+        typeof rawJob?.name === 'string' && rawJob.name.trim()
+          ? rawJob.name.trim()
+          : `Job ${index + 1}`,
+    });
+
+    return jobs;
+  }, []);
+
+  return normalizedJobs.length ? normalizedJobs : createDefaultJobs();
+}
+
+function getDefaultJobId(jobs) {
+  return normalizeJobs(jobs)[0]?.id || DEFAULT_JOB.id;
+}
+
+function getJobName(jobId, jobs) {
+  return normalizeJobs(jobs).find((job) => job.id === jobId)?.name || 'Unknown Job';
+}
+
+function normalizeSettings(rawSettings = {}) {
+  const payPeriodSettings = normalizePayPeriodSettings(rawSettings);
+
+  return {
+    hourlyRate: Number(rawSettings?.hourlyRate) || DEFAULT_SETTINGS.hourlyRate,
+    tipOutRate: Number(rawSettings?.tipOutRate) || DEFAULT_SETTINGS.tipOutRate,
+    tipGoal: Number(rawSettings?.tipGoal) || DEFAULT_SETTINGS.tipGoal,
+    hoursGoal: Number(rawSettings?.hoursGoal) || DEFAULT_SETTINGS.hoursGoal,
+    payPeriodLengthDays: payPeriodSettings.payPeriodLengthDays,
+    payPeriodAnchorDate: payPeriodSettings.payPeriodAnchorDate,
+    jobs: normalizeJobs(rawSettings?.jobs),
   };
 }
 
@@ -281,11 +355,18 @@ function getLocalActiveDataset(profileStore, activeProfileId) {
   const activeProfile =
     profiles.find((profile) => profile.id === activeProfileId) || profiles[0] || DEFAULT_PROFILE;
   const activeProfileData = profileStore?.dataById?.[activeProfile.id] || createEmptyProfileData();
+  const settings = normalizeSettings(activeProfileData.settings || {});
+  const defaultJobId = getDefaultJobId(settings.jobs);
 
   return {
     profileName: activeProfile.name || DEFAULT_PROFILE.name,
-    shifts: sortShiftsNewestFirst(activeProfileData.shifts || []),
-    settings: { ...DEFAULT_SETTINGS, ...(activeProfileData.settings || {}) },
+    shifts: sortShiftsNewestFirst(
+      (activeProfileData.shifts || []).map((shift) => ({
+        ...shift,
+        jobId: shift.jobId || defaultJobId,
+      }))
+    ),
+    settings,
   };
 }
 
@@ -299,25 +380,21 @@ function getDefaultProfileName(user, settingsRow) {
 }
 
 function normalizeSettingsRow(settingsRow, user) {
-  const payPeriodSettings = normalizePayPeriodSettings({
-    payPeriodLengthDays: settingsRow?.pay_period_length_days,
-    payPeriodAnchorDate: settingsRow?.pay_period_anchor_date,
-  });
-
   return {
     profileName: getDefaultProfileName(user, settingsRow),
-    settings: {
+    settings: normalizeSettings({
       hourlyRate: Number(settingsRow?.hourly_rate) || DEFAULT_SETTINGS.hourlyRate,
       tipOutRate: Number(settingsRow?.tip_out_rate) || DEFAULT_SETTINGS.tipOutRate,
       tipGoal: Number(settingsRow?.tip_goal) || DEFAULT_SETTINGS.tipGoal,
       hoursGoal: Number(settingsRow?.hours_goal) || DEFAULT_SETTINGS.hoursGoal,
-      payPeriodLengthDays: payPeriodSettings.payPeriodLengthDays,
-      payPeriodAnchorDate: payPeriodSettings.payPeriodAnchorDate,
-    },
+      payPeriodLengthDays: settingsRow?.pay_period_length_days,
+      payPeriodAnchorDate: settingsRow?.pay_period_anchor_date,
+      jobs: settingsRow?.jobs,
+    }),
   };
 }
 
-function normalizeShiftRow(shiftRow) {
+function normalizeShiftRow(shiftRow, jobs) {
   return {
     id: shiftRow.id,
     date: shiftRow.shift_date,
@@ -329,6 +406,7 @@ function normalizeShiftRow(shiftRow) {
     earnings: Number(shiftRow.earnings) || 0,
     floor: shiftRow.floor || '',
     notes: shiftRow.notes || '',
+    jobId: shiftRow.job_id || getDefaultJobId(jobs),
   };
 }
 
@@ -345,21 +423,24 @@ function serializeShift(shift, userId) {
     earnings: Number(shift.earnings) || 0,
     floor: shift.floor || null,
     notes: shift.notes || '',
+    job_id: shift.jobId || null,
   };
 }
 
 function serializeSettings(settings, userId, profileName) {
-  const payPeriodSettings = normalizePayPeriodSettings(settings);
+  const normalizedSettings = normalizeSettings(settings);
+  const payPeriodSettings = normalizePayPeriodSettings(normalizedSettings);
 
   return {
     user_id: userId,
     display_name: profileName,
-    hourly_rate: Number(settings.hourlyRate) || DEFAULT_SETTINGS.hourlyRate,
-    tip_out_rate: Number(settings.tipOutRate) || DEFAULT_SETTINGS.tipOutRate,
-    tip_goal: Number(settings.tipGoal) || DEFAULT_SETTINGS.tipGoal,
-    hours_goal: Number(settings.hoursGoal) || DEFAULT_SETTINGS.hoursGoal,
+    hourly_rate: Number(normalizedSettings.hourlyRate) || DEFAULT_SETTINGS.hourlyRate,
+    tip_out_rate: Number(normalizedSettings.tipOutRate) || DEFAULT_SETTINGS.tipOutRate,
+    tip_goal: Number(normalizedSettings.tipGoal) || DEFAULT_SETTINGS.tipGoal,
+    hours_goal: Number(normalizedSettings.hoursGoal) || DEFAULT_SETTINGS.hoursGoal,
     pay_period_length_days: payPeriodSettings.payPeriodLengthDays,
     pay_period_anchor_date: payPeriodSettings.payPeriodAnchorDate,
+    jobs: normalizedSettings.jobs,
   };
 }
 
@@ -367,6 +448,10 @@ function hasLocalDataToImport(dataset) {
   const hasShifts = Boolean(dataset.shifts.length);
   const hasCustomSettings = Object.entries(DEFAULT_SETTINGS).some(([key, defaultValue]) => {
     const currentValue = dataset.settings[key];
+
+    if (Array.isArray(defaultValue) || typeof defaultValue === 'object') {
+      return JSON.stringify(currentValue ?? null) !== JSON.stringify(defaultValue);
+    }
 
     if (typeof defaultValue === 'string') {
       return (currentValue || '') !== defaultValue;
@@ -759,10 +844,13 @@ async function fetchCloudData(user) {
   }
 
   const normalizedSettings = normalizeSettingsRow(settingsRow, user);
+  const normalizedShiftRows = (shiftRows || []).map((shiftRow) =>
+    normalizeShiftRow(shiftRow, normalizedSettings.settings.jobs)
+  );
 
   return {
     profileName: normalizedSettings.profileName,
-    shifts: (shiftRows || []).map(normalizeShiftRow),
+    shifts: normalizedShiftRows,
     settings: normalizedSettings.settings,
   };
 }
@@ -785,6 +873,7 @@ function App() {
   const [authMessage, setAuthMessage] = useState('');
   const [isImportingLocalData, setIsImportingLocalData] = useState(false);
   const [view, setView] = useState('dashboard');
+  const [selectedJobId, setSelectedJobId] = useState(ALL_JOBS_VALUE);
   const [selectedDate, setSelectedDate] = useState('');
   const [historyFilterType, setHistoryFilterType] = useState('all');
   const [historyFilterValue, setHistoryFilterValue] = useState('');
@@ -915,16 +1004,65 @@ function App() {
   const isCloudMode = Boolean(isSupabaseConfigured && session?.user);
   const profileName = isCloudMode ? cloudProfileName : localDataset.profileName;
   const shifts = isCloudMode ? cloudProfileData.shifts || [] : localDataset.shifts;
-  const settings = isCloudMode
-    ? { ...DEFAULT_SETTINGS, ...(cloudProfileData.settings || {}) }
-    : localDataset.settings;
+  const baseSettings = useMemo(
+    () =>
+      normalizeSettings(
+        isCloudMode ? cloudProfileData.settings || createDefaultSettings() : localDataset.settings
+      ),
+    [cloudProfileData.settings, isCloudMode, localDataset.settings]
+  );
+  const jobs = useMemo(() => {
+    const configuredJobs = normalizeJobs(baseSettings.jobs);
+    const knownJobIds = new Set(configuredJobs.map((job) => job.id));
+    const recoveredJobs = [];
+
+    shifts.forEach((shift) => {
+      if (shift.jobId && !knownJobIds.has(shift.jobId)) {
+        knownJobIds.add(shift.jobId);
+        recoveredJobs.push({
+          id: shift.jobId,
+          name: `Saved Job ${recoveredJobs.length + 1}`,
+        });
+      }
+    });
+
+    return [...configuredJobs, ...recoveredJobs];
+  }, [baseSettings.jobs, shifts]);
+  const settings = useMemo(
+    () => ({
+      ...baseSettings,
+      jobs,
+    }),
+    [baseSettings, jobs]
+  );
+  const selectedJob =
+    selectedJobId === ALL_JOBS_VALUE ? null : jobs.find((job) => job.id === selectedJobId) || null;
+  const filteredByJobShifts = useMemo(() => {
+    if (selectedJobId === ALL_JOBS_VALUE) {
+      return shifts;
+    }
+
+    return shifts.filter((shift) => shift.jobId === selectedJobId);
+  }, [selectedJobId, shifts]);
 
   const canImportLocalData =
     isCloudMode && !cloudProfileData.shifts.length && hasLocalDataToImport(localDataset);
 
+  useEffect(() => {
+    if (selectedJobId !== ALL_JOBS_VALUE && !jobs.some((job) => job.id === selectedJobId)) {
+      setSelectedJobId(ALL_JOBS_VALUE);
+    }
+  }, [jobs, selectedJobId]);
+
   const payPeriods = useMemo(
-    () => getPeriods(shifts || [], settings?.hourlyRate || 0, settings?.tipOutRate || 0, settings),
-    [settings, settings?.hourlyRate, settings?.tipOutRate, shifts]
+    () =>
+      getPeriods(
+        filteredByJobShifts || [],
+        settings?.hourlyRate || 0,
+        settings?.tipOutRate || 0,
+        settings
+      ),
+    [filteredByJobShifts, settings, settings?.hourlyRate, settings?.tipOutRate]
   );
 
   const payPeriodStats = useMemo(() => {
@@ -1031,7 +1169,10 @@ function App() {
     };
   }, [payPeriodStats, settings]);
 
-  const sortedShifts = useMemo(() => sortShiftsNewestFirst(shifts), [shifts]);
+  const sortedShifts = useMemo(
+    () => sortShiftsNewestFirst(filteredByJobShifts),
+    [filteredByJobShifts]
+  );
   const recentShift = sortedShifts[0];
 
   const dashboardInsights = useMemo(() => {
@@ -1058,7 +1199,7 @@ function App() {
   }, [payPeriodStats, settings, sortedShifts]);
   const yearlyStats = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    const yearShifts = shifts.filter((shift) => {
+    const yearShifts = filteredByJobShifts.filter((shift) => {
       if (!shift.date) {
         return false;
       }
@@ -1070,11 +1211,11 @@ function App() {
       year: currentYear,
       ...computeStats(yearShifts, settings),
     };
-  }, [settings, shifts]);
+  }, [filteredByJobShifts, settings]);
 
   const monthOptions = useMemo(() => {
     const seen = new Map();
-    shifts.forEach((shift) => {
+    filteredByJobShifts.forEach((shift) => {
       if (!shift.date) {
         return;
       }
@@ -1090,11 +1231,11 @@ function App() {
     return Array.from(seen.entries())
       .sort((left, right) => right[0].localeCompare(left[0]))
       .map(([value, label]) => ({ value, label }));
-  }, [shifts]);
+  }, [filteredByJobShifts]);
 
   const weekOptions = useMemo(() => {
     const seen = new Map();
-    shifts.forEach((shift) => {
+    filteredByJobShifts.forEach((shift) => {
       if (!shift.date) {
         return;
       }
@@ -1107,7 +1248,7 @@ function App() {
     return Array.from(seen.entries())
       .sort((left, right) => right[0].localeCompare(left[0]))
       .map(([value, label]) => ({ value, label }));
-  }, [shifts]);
+  }, [filteredByJobShifts]);
 
   const payPeriodOptions = useMemo(
     () =>
@@ -1140,7 +1281,7 @@ function App() {
         const rangeStart = new Date(rangeEnd);
         rangeStart.setDate(rangeStart.getDate() - (totalDays - 1));
 
-        return shifts.filter((shift) => {
+        return filteredByJobShifts.filter((shift) => {
           if (!shift.date) {
             return false;
           }
@@ -1151,11 +1292,11 @@ function App() {
       }
 
       if (historyFilterType === 'month' && historyFilterValue) {
-        return shifts.filter((shift) => shift.date?.startsWith(historyFilterValue));
+        return filteredByJobShifts.filter((shift) => shift.date?.startsWith(historyFilterValue));
       }
 
       if (historyFilterType === 'week' && historyFilterValue) {
-        return shifts.filter(
+        return filteredByJobShifts.filter(
           (shift) => startOfWeek(shift.date).toISOString() === historyFilterValue
         );
       }
@@ -1170,17 +1311,18 @@ function App() {
         const periodStart = parsePeriodKey(selectedPeriod.key);
         const periodEnd = getPeriodEnd(periodStart, settings);
 
-        return shifts.filter((shift) => {
+        return filteredByJobShifts.filter((shift) => {
           const shiftDate = new Date(`${shift.date}T00:00:00`);
           return shiftDate >= periodStart && shiftDate <= periodEnd;
         });
       }
 
-      return shifts;
+      return filteredByJobShifts;
     }
 
-    return shifts.filter((shift) => shift.date === selectedDate);
+    return filteredByJobShifts.filter((shift) => shift.date === selectedDate);
   }, [
+    filteredByJobShifts,
     historyFilterType,
     historyFilterValue,
     payPeriods,
@@ -1189,7 +1331,6 @@ function App() {
     settings,
     settings?.hourlyRate,
     settings?.tipOutRate,
-    shifts,
   ]);
   const activeHistoryLabel = useMemo(() => {
     if (selectedDate) {
@@ -1312,7 +1453,7 @@ function App() {
           throw error;
         }
 
-        const savedShift = normalizeShiftRow(data);
+        const savedShift = normalizeShiftRow(data, jobs);
 
         setCloudProfileData((currentData) => {
           const nextShifts = editingShift
@@ -1381,7 +1522,7 @@ function App() {
         setCloudProfileData((currentData) => ({
           ...currentData,
           shifts: sortShiftsNewestFirst([
-            ...(data || []).map(normalizeShiftRow),
+            ...(data || []).map((shiftRow) => normalizeShiftRow(shiftRow, jobs)),
             ...currentData.shifts,
           ]),
         }));
@@ -1491,7 +1632,7 @@ function App() {
           throw error;
         }
 
-        const restoredShift = normalizeShiftRow(data);
+        const restoredShift = normalizeShiftRow(data, jobs);
 
         setCloudProfileData((currentData) => ({
           ...currentData,
@@ -1516,13 +1657,15 @@ function App() {
   }
 
   async function handleSaveSettings(nextSettings) {
+    const normalizedNextSettings = normalizeSettings(nextSettings);
+
     if (isCloudMode) {
       try {
         setCloudError('');
 
         const { data, error } = await supabase
           .from('settings')
-          .upsert(serializeSettings(nextSettings, session.user.id, cloudProfileName))
+          .upsert(serializeSettings(normalizedNextSettings, session.user.id, cloudProfileName))
           .select()
           .single();
 
@@ -1546,7 +1689,7 @@ function App() {
 
     updateActiveProfileData((currentProfileData) => ({
       ...currentProfileData,
-      settings: nextSettings,
+      settings: normalizedNextSettings,
     }));
   }
 
@@ -1579,6 +1722,7 @@ function App() {
     const rows = [
       [
         'Date',
+        'Job',
         'Start Time',
         'End Time',
         'Hours',
@@ -1600,6 +1744,7 @@ function App() {
 
         return [
           shift.date,
+          getJobName(shift.jobId, jobs),
           shift.startTime || '',
           shift.endTime || '',
           shift.hours,
@@ -1780,7 +1925,9 @@ function App() {
 
       const normalized = normalizeSettingsRow(settingsResult.data, session.user);
       const importedShifts = shiftsResult?.data?.length
-        ? shiftsResult.data.map(normalizeShiftRow)
+        ? shiftsResult.data.map((shiftRow) =>
+            normalizeShiftRow(shiftRow, normalized.settings.jobs)
+          )
         : localDataset.shifts;
 
       setCloudProfileName(normalized.profileName);
@@ -1855,6 +2002,15 @@ function App() {
                   A cleaner way to log shifts, review checks, and see what you actually keep after tip-out.
                 </Text>
                 <Badge
+                  bg={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}
+                  color={isDarkMode ? 'gray.100' : 'gray.800'}
+                  borderRadius="full"
+                  px={3}
+                  py={1}
+                >
+                  {selectedJob ? `Viewing ${selectedJob.name}` : 'Viewing all jobs'}
+                </Badge>
+                <Badge
                   bg={isCloudMode ? 'rgba(59,130,246,0.1)' : 'rgba(245,158,11,0.12)'}
                   color={isCloudMode ? 'brand.700' : '#92400e'}
                   borderRadius="full"
@@ -1913,6 +2069,20 @@ function App() {
                   </Button>
                 </>
               )}
+
+              <Select
+                value={selectedJobId}
+                onChange={(event) => setSelectedJobId(event.target.value)}
+                maxW={{ base: 'full', md: '220px' }}
+                aria-label="Filter by job"
+              >
+                <option value={ALL_JOBS_VALUE}>All jobs</option>
+                {jobs.map((job) => (
+                  <option key={job.id} value={job.id}>
+                    {job.name}
+                  </option>
+                ))}
+              </Select>
 
               <IconButton
                 icon={isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
@@ -2159,7 +2329,9 @@ function App() {
                   isDarkMode={isDarkMode}
                   label="Yearly wages"
                   value={formatCurrency(yearlyStats.totalTakeHome)}
-                  helper={`${yearlyStats.year} running total across all saved shifts.`}
+                  helper={`${yearlyStats.year} running total ${
+                    selectedJob ? `for ${selectedJob.name}.` : 'across all saved shifts.'
+                  }`}
                   accent="#c084fc"
                 />
                 <InsightCard
@@ -2299,7 +2471,7 @@ function App() {
               <Box display="grid" gap={6}>
                 <BiWeeklyHours
                   isDarkMode={isDarkMode}
-                  shifts={shifts}
+                  shifts={filteredByJobShifts}
                   settings={settings}
                   onSelectPeriod={handlePayPeriodSelect}
                 />
@@ -2307,6 +2479,7 @@ function App() {
                   isDarkMode={isDarkMode}
                   shifts={sortedShifts.slice(0, 8)}
                   settings={settings}
+                  jobs={jobs}
                   onEdit={handleEditShift}
                   onDelete={handleDeleteShift}
                   title="Recent shifts"
@@ -2322,6 +2495,7 @@ function App() {
                 isDarkMode={isDarkMode}
                 shifts={filteredShifts}
                 settings={settings}
+                jobs={jobs}
                 onEdit={handleEditShift}
                 onDelete={handleDeleteShift}
                 title={activeHistoryLabel || 'All shifts'}
@@ -2338,15 +2512,17 @@ function App() {
             {view === 'biWeekly' ? (
               <BiWeeklyHours
                 isDarkMode={isDarkMode}
-                shifts={shifts}
+                shifts={filteredByJobShifts}
                 settings={settings}
                 onSelectPeriod={handlePayPeriodSelect}
               />
             ) : null}
-            {view === 'floor' ? <FloorComparison shifts={shifts} settings={settings} /> : null}
+            {view === 'floor' ? (
+              <FloorComparison shifts={filteredByJobShifts} settings={settings} />
+            ) : null}
             {view === 'calendar' ? (
               <CalendarView
-                shifts={shifts}
+                shifts={filteredByJobShifts}
                 selectedDate={selectedDate}
                 onDateClick={handleCalendarDateClick}
               />
@@ -2362,6 +2538,8 @@ function App() {
           onSaveBatch={handleSaveBatchShifts}
           editingShift={editingShift}
           settings={settings}
+          jobs={jobs}
+          defaultJobId={selectedJob?.id || getDefaultJobId(jobs)}
           existingShifts={shifts}
         />
 

@@ -53,8 +53,9 @@ function calculateHours(startTime, endTime) {
   return (totalMinutes / 60).toFixed(2);
 }
 
-function createEmptyForm() {
+function createEmptyForm(defaultJobId = '') {
   return {
+    jobId: defaultJobId,
     date: today(),
     startTime: '17:00',
     endTime: '',
@@ -222,6 +223,7 @@ function createShiftFromParsedReceipt(parsed, fallbackForm = createEmptyForm()) 
   }
 
   return {
+    jobId: fallbackForm.jobId || '',
     date: adjustedDate,
     startTime,
     endTime,
@@ -243,9 +245,11 @@ function AddShiftDialog({
   onSaveBatch,
   editingShift,
   settings,
+  jobs = [],
+  defaultJobId = '',
   existingShifts = [],
 }) {
-  const [form, setForm] = useState(createEmptyForm);
+  const [form, setForm] = useState(() => createEmptyForm(defaultJobId));
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanStatus, setScanStatus] = useState('');
@@ -259,6 +263,7 @@ function AddShiftDialog({
   useEffect(() => {
     if (editingShift) {
       setForm({
+        jobId: editingShift.jobId || defaultJobId,
         date: editingShift.date || today(),
         startTime: editingShift.startTime || '',
         endTime: editingShift.endTime || '',
@@ -273,7 +278,7 @@ function AddShiftDialog({
     }
 
     if (isOpen) {
-      setForm(createEmptyForm());
+      setForm(createEmptyForm(defaultJobId));
       setIsScanning(false);
       setScanProgress(0);
       setScanStatus('');
@@ -282,7 +287,7 @@ function AddShiftDialog({
       setBatchDrafts([]);
       setIsDraggingReceipt(false);
     }
-  }, [editingShift, isOpen]);
+  }, [defaultJobId, editingShift, isOpen]);
 
   const suggestedBasePay = useMemo(() => {
     const hours = Number(form.hours) || 0;
@@ -348,7 +353,10 @@ function AddShiftDialog({
         throw new Error('The receipt was scanned, but I could not confidently find sales or tip amounts.');
       }
 
-      const draft = createShiftFromParsedReceipt(parsed, preserveCurrentForm ? createEmptyForm() : form);
+      const draft = createShiftFromParsedReceipt(
+        parsed,
+        preserveCurrentForm ? createEmptyForm(defaultJobId) : form
+      );
 
       setScanSummary(parsed.summary);
       if (!preserveCurrentForm) {
@@ -491,6 +499,7 @@ function AddShiftDialog({
     const saved = await onSaveBatch(
       draftsToSave.map((draft) => ({
         ...draft.shift,
+        jobId: draft.shift.jobId || defaultJobId,
         hours: Number(draft.shift.hours) || 0,
         sales: Number(draft.shift.sales) || 0,
         tips: Number(draft.shift.tips) || 0,
@@ -504,11 +513,12 @@ function AddShiftDialog({
   }
 
   function handleSave() {
-    if (!form.date || !form.hours || !form.tips) {
+    if (!form.jobId || !form.date || !form.hours || !form.tips) {
       return;
     }
 
     onSave({
+      jobId: form.jobId || defaultJobId,
       date: form.date,
       startTime: form.startTime,
       endTime: form.endTime,
@@ -703,6 +713,21 @@ function AddShiftDialog({
             </Box>
 
             <FormControl isRequired>
+              <FormLabel>Job</FormLabel>
+              <Select
+                placeholder="Select job"
+                value={form.jobId}
+                onChange={(event) => updateField('jobId', event.target.value)}
+              >
+                {jobs.map((job) => (
+                  <option key={job.id} value={job.id}>
+                    {job.name}
+                  </option>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl isRequired>
               <FormLabel>Date</FormLabel>
               <Input
                 type="date"
@@ -844,7 +869,7 @@ function AddShiftDialog({
           <Button
             colorScheme="teal"
             onClick={handleSave}
-            isDisabled={!form.date || !form.hours || !form.tips}
+            isDisabled={!form.jobId || !form.date || !form.hours || !form.tips}
           >
             {editingShift ? 'Save changes' : 'Add shift'}
           </Button>

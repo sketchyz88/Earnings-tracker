@@ -15,6 +15,7 @@ import {
 } from '@chakra-ui/react';
 import { Edit, Trash2 } from 'lucide-react';
 import { getPeriodEnd, getPeriodStart } from './BiWeeklyHours';
+import { formatCurrency } from '../utils/format';
 
 function getShiftSortTimestamp(shift) {
   if (!shift?.date) {
@@ -156,12 +157,12 @@ function ShiftsByDay({
                       : 'Manual entry'}
                   </Td>
                   <Td>{hours.toFixed(2)}</Td>
-                  <Td color="orange.200">${sales.toFixed(2)}</Td>
-                  <Td color="green.600">${tips.toFixed(2)}</Td>
-                  <Td color="red.300">${tipOut.toFixed(2)}</Td>
-                  <Td color="brand.700">${netTips.toFixed(2)}</Td>
+                  <Td color="orange.200">{formatCurrency(sales)}</Td>
+                  <Td color="green.600">{formatCurrency(tips)}</Td>
+                  <Td color="red.300">{formatCurrency(tipOut)}</Td>
+                  <Td color="brand.700">{formatCurrency(netTips)}</Td>
                   <Td color="blue.300">
-                    {basePay > 0 ? `$${basePay.toFixed(2)}` : 'From hourly rate'}
+                    {basePay > 0 ? formatCurrency(basePay) : 'From hourly rate'}
                   </Td>
                   <Td>{shift.floor || 'Unspecified'}</Td>
                   <Td maxW="220px">

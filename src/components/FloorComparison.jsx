@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { formatCurrency } from '../utils/format';
 
 function startOfDay(date) {
   const normalized = new Date(date);
@@ -212,13 +213,13 @@ function FloorComparison({ shifts, settings }) {
               {floor.shifts} {floor.shifts === 1 ? 'shift' : 'shifts'} • {floor.hours.toFixed(1)} hours
             </Text>
             <Text mt={3} fontSize="2xl" fontWeight="bold" color="green.300">
-              ${floor.netTips.toFixed(2)}
+              {formatCurrency(floor.netTips)}
             </Text>
             <Text color="gray.400" fontSize="sm">
-              ${floor.tipOut.toFixed(2)} tip-out • ${floor.tipsPerHour.toFixed(2)}/hr net tips
+              {formatCurrency(floor.tipOut)} tip-out • {formatCurrency(floor.tipsPerHour)}/hr net tips
             </Text>
             <Text mt={3} color="blue.200" fontSize="sm">
-              ${floor.takeHomePerShift.toFixed(2)} average take-home per shift
+              {formatCurrency(floor.takeHomePerShift)} average take-home per shift
             </Text>
           </Box>
         ))}
@@ -241,7 +242,7 @@ function FloorComparison({ shifts, settings }) {
             <XAxis dataKey="floor" tick={{ fill: '#94a3b8', fontSize: 11 }} />
             <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
             <Tooltip
-              formatter={(value) => [`$${value}`, 'Tips / hour']}
+              formatter={(value) => [formatCurrency(value), 'Tips / hour']}
               contentStyle={{
                 backgroundColor: '#0f172a',
                 border: '1px solid rgba(255,255,255,0.12)',

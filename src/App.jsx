@@ -1,3 +1,4 @@
+import '@fontsource-variable/inter';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -11,6 +12,10 @@ import {
   HStack,
   IconButton,
   Input,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuList,
   Select,
   SimpleGrid,
   Spinner,
@@ -25,8 +30,8 @@ import {
   Settings,
   Sun,
   Target,
-  TrendingDown,
   TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import AddShiftDialog from './components/AddShiftDialog';
 import AboutView from './components/AboutView';
@@ -46,6 +51,15 @@ import FloorComparison from './components/FloorComparison';
 import SettingsDialog from './components/SettingsDialog';
 import ShiftsByDay from './components/ShiftsByDay';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
+import {
+  formatCompactCurrency,
+  formatCurrency,
+  formatHours,
+  formatMultiplier,
+  formatSignedCurrency,
+  formatSignedPercent,
+} from './utils/format';
+import { ACCENTS, RADII, TABULAR, palette } from './theme/tokens';
 
 const STORAGE_KEYS = {
   profiles: 'earnings_tracker_profiles_v1',
@@ -83,6 +97,7 @@ const DEFAULT_PROFILE = {
 
 function createTheme(uiMode) {
   const isDarkMode = uiMode === 'dark';
+  const tokens = palette(isDarkMode);
 
   return extendTheme({
   config: {
@@ -90,8 +105,15 @@ function createTheme(uiMode) {
     useSystemColorMode: false,
   },
   fonts: {
-    heading: `'Avenir Next', 'Segoe UI', sans-serif`,
-    body: `'Avenir Next', 'Segoe UI', sans-serif`,
+    heading: `'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`,
+    body: `'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`,
+  },
+  radii: {
+    md: RADII.md,
+    lg: RADII.lg,
+    xl: RADII.xl,
+    '2xl': RADII.xl,
+    '3xl': RADII.xl,
   },
   colors: {
     brand: {
@@ -110,38 +132,53 @@ function createTheme(uiMode) {
   styles: {
     global: {
       body: {
-        bg: isDarkMode ? '#0f172a' : '#f5f7fb',
-        color: isDarkMode ? '#e5e7eb' : '#111827',
-        backgroundImage:
-          isDarkMode
-            ? 'radial-gradient(circle at top, rgba(59,130,246,0.16), transparent 24%), linear-gradient(180deg, #111827 0%, #0f172a 55%, #020617 100%)'
-            : 'radial-gradient(circle at top, rgba(59,130,246,0.1), transparent 24%), linear-gradient(180deg, #fafcff 0%, #f5f7fb 55%, #eef2f7 100%)',
+        bg: tokens.canvas,
+        color: tokens.text,
+        backgroundImage: tokens.canvasGradient,
+        backgroundAttachment: 'fixed',
+        // Inter's contextual alternates and disambiguated glyphs; the app is
+        // dense with digits, so legibility beats the default forms.
+        fontFeatureSettings: `'cv02' 1, 'cv03' 1, 'cv04' 1, 'ss03' 1`,
+        WebkitFontSmoothing: 'antialiased',
+        letterSpacing: '-0.011em',
       },
+      // Any element rendering a figure gets lining tabular numerals so columns
+      // align and in-place updates don't shift width.
+      '[data-numeric]': TABULAR,
       '*::placeholder': {
-        color: '#8b8f92',
+        color: tokens.textSubtle,
+      },
+      '*:focus-visible': {
+        outline: `2px solid ${ACCENTS.primary}`,
+        outlineOffset: '2px',
+        boxShadow: 'none',
       },
     },
   },
   components: {
     Button: {
       baseStyle: {
-        borderRadius: 'full',
-        fontWeight: 'semibold',
+        borderRadius: RADII.md,
+        fontWeight: 600,
+        letterSpacing: '-0.006em',
+        transition: 'background-color 120ms ease, border-color 120ms ease, transform 120ms ease',
+        _active: { transform: 'translateY(1px)' },
       },
     },
     Input: {
       variants: {
         outline: {
           field: {
-            bg: isDarkMode ? '#111827' : '#fcfbf8',
-            borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.18)' : 'rgba(22, 33, 43, 0.12)',
-            color: isDarkMode ? '#e5e7eb' : '#16212b',
+            bg: tokens.surfaceSunken,
+            borderRadius: RADII.md,
+            borderColor: tokens.border,
+            color: tokens.text,
             _hover: {
-              borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.28)' : 'rgba(22, 33, 43, 0.22)',
+              borderColor: tokens.borderStrong,
             },
             _focusVisible: {
-              borderColor: '#7aa88b',
-              boxShadow: '0 0 0 1px #7aa88b',
+              borderColor: ACCENTS.primary,
+              boxShadow: `0 0 0 3px ${ACCENTS.primaryMuted}`,
             },
           },
         },
@@ -151,19 +188,20 @@ function createTheme(uiMode) {
       variants: {
         outline: {
           field: {
-            bg: isDarkMode ? '#111827' : '#fcfbf8',
-            borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.18)' : 'rgba(22, 33, 43, 0.12)',
-            color: isDarkMode ? '#e5e7eb' : '#16212b',
+            bg: tokens.surfaceSunken,
+            borderRadius: RADII.md,
+            borderColor: tokens.border,
+            color: tokens.text,
             _hover: {
-              borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.28)' : 'rgba(22, 33, 43, 0.22)',
+              borderColor: tokens.borderStrong,
             },
             _focusVisible: {
-              borderColor: '#7aa88b',
-              boxShadow: '0 0 0 1px #7aa88b',
+              borderColor: ACCENTS.primary,
+              boxShadow: `0 0 0 3px ${ACCENTS.primaryMuted}`,
             },
           },
           icon: {
-            color: isDarkMode ? '#94a3b8' : '#6f7780',
+            color: tokens.textMuted,
           },
         },
       },
@@ -172,15 +210,16 @@ function createTheme(uiMode) {
       variants: {
         outline: {
           field: {
-            bg: isDarkMode ? '#111827' : '#fcfbf8',
-            borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.18)' : 'rgba(22, 33, 43, 0.12)',
-            color: isDarkMode ? '#e5e7eb' : '#16212b',
+            bg: tokens.surfaceSunken,
+            borderRadius: RADII.md,
+            borderColor: tokens.border,
+            color: tokens.text,
             _hover: {
-              borderColor: isDarkMode ? 'rgba(148, 163, 184, 0.28)' : 'rgba(22, 33, 43, 0.22)',
+              borderColor: tokens.borderStrong,
             },
             _focusVisible: {
-              borderColor: '#7aa88b',
-              boxShadow: '0 0 0 1px #7aa88b',
+              borderColor: ACCENTS.primary,
+              boxShadow: `0 0 0 3px ${ACCENTS.primaryMuted}`,
             },
           },
         },
@@ -551,34 +590,6 @@ function escapeCsvValue(value) {
   return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
 }
 
-function formatCurrency(value) {
-  return `$${value.toFixed(2)}`;
-}
-
-function formatSignedCurrency(value) {
-  if (!Number.isFinite(value) || value === 0) {
-    return '$0.00';
-  }
-
-  return `${value > 0 ? '+' : '-'}$${Math.abs(value).toFixed(2)}`;
-}
-
-function formatSignedPercent(value) {
-  if (!Number.isFinite(value) || value === 0) {
-    return '0.0%';
-  }
-
-  return `${value > 0 ? '+' : '-'}${Math.abs(value).toFixed(1)}%`;
-}
-
-function formatMultiplier(value) {
-  if (!Number.isFinite(value) || value <= 0) {
-    return '0.0x';
-  }
-
-  return `${value.toFixed(1)}x`;
-}
-
 function formatDateLabel(dateString) {
   return new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', {
     weekday: 'short',
@@ -615,6 +626,51 @@ function formatWeekLabel(startDate) {
   })}`;
 }
 
+function CardShell({ isDarkMode, accent, raised = false, children, ...rest }) {
+  const tokens = palette(isDarkMode);
+  return (
+    <Box
+      position="relative"
+      overflow="hidden"
+      bg={raised ? tokens.surfaceRaised : tokens.surface}
+      backdropFilter="blur(12px)"
+      borderRadius={RADII.xl}
+      border="1px solid"
+      borderColor={tokens.border}
+      boxShadow={raised ? tokens.shadowRaised : tokens.shadow}
+      transition="border-color 160ms ease, box-shadow 160ms ease"
+      _hover={{ borderColor: tokens.borderStrong }}
+      {...rest}
+    >
+      {accent ? (
+        <Box
+          position="absolute"
+          insetX={0}
+          top={0}
+          height="1px"
+          bgGradient={`linear(to-r, transparent, ${accent}, transparent)`}
+        />
+      ) : null}
+      {children}
+    </Box>
+  );
+}
+
+function CardLabel({ isDarkMode, children }) {
+  const tokens = palette(isDarkMode);
+  return (
+    <Text
+      color={tokens.textMuted}
+      fontSize="11px"
+      fontWeight={600}
+      letterSpacing="0.08em"
+      textTransform="uppercase"
+    >
+      {children}
+    </Text>
+  );
+}
+
 function SnapshotCard({
   isDarkMode,
   label,
@@ -625,92 +681,61 @@ function SnapshotCard({
   accent,
   metrics = [],
 }) {
+  const tokens = palette(isDarkMode);
+
   return (
-    <Box
-      bg={
-        isDarkMode
-          ? 'linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.98) 100%)'
-          : 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)'
-      }
-      borderRadius="32px"
-      p={{ base: 6, md: 7 }}
-      border="1px solid"
-      borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(15, 23, 42, 0.08)'}
-      boxShadow={isDarkMode ? '0 26px 54px rgba(2, 6, 23, 0.42)' : '0 24px 48px rgba(15, 23, 42, 0.08)'}
-      position="relative"
-      overflow="hidden"
-    >
-      <Box
-        position="absolute"
-        insetX={0}
-        top={0}
-        height="5px"
-        bg={accent}
-        opacity={0.9}
-      />
-      <Text
-        color={isDarkMode ? 'gray.400' : 'gray.600'}
-        fontSize="xs"
-        fontWeight="semibold"
-        letterSpacing="0.14em"
-        textTransform="uppercase"
-      >
-        {label}
-      </Text>
+    <CardShell isDarkMode={isDarkMode} accent={accent} raised p={{ base: 5, md: 6 }}>
+      <Flex justify="space-between" align="baseline" gap={4} wrap="wrap">
+        <CardLabel isDarkMode={isDarkMode}>{label}</CardLabel>
+        <Text color={tokens.textMuted} fontSize="sm" data-numeric>
+          {title}
+        </Text>
+      </Flex>
+
       <Text
         mt={3}
-        color={isDarkMode ? 'white' : 'gray.900'}
-        fontSize={{ base: '2xl', md: '3xl' }}
-        fontWeight="bold"
-        lineHeight="shorter"
-        maxW="18ch"
-      >
-        {title}
-      </Text>
-      <Text
-        mt={4}
-        color={isDarkMode ? 'white' : 'gray.900'}
-        fontSize={{ base: '3xl', md: '4xl' }}
-        fontWeight="black"
-        lineHeight="0.95"
+        color={tokens.text}
+        fontSize={{ base: '40px', md: '52px' }}
+        fontWeight={700}
+        lineHeight="1"
+        letterSpacing="-0.03em"
+        data-numeric
       >
         {value}
       </Text>
       {detail ? (
-        <Text mt={2} color={accent} fontSize="sm" fontWeight="semibold">
+        <Text mt={2.5} color={tokens.textMuted} fontSize="sm" data-numeric>
           {detail}
         </Text>
       ) : null}
 
       {metrics.length ? (
-        <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={3} mt={6}>
-          {metrics.map((metric) => (
+        <SimpleGrid columns={{ base: 2, lg: 4 }} spacing={0} mt={6}>
+          {metrics.map((metric, index) => (
             <Box
               key={metric.label}
-              bg={isDarkMode ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.82)'}
-              borderRadius="22px"
-              p={4}
-              border="1px solid"
-              borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)'}
+              pl={{ base: index % 2 === 0 ? 0 : 5, lg: index === 0 ? 0 : 5 }}
+              pr={{ base: 3, lg: 4 }}
+              py={1}
+              borderLeft={{
+                base: index % 2 === 0 ? 'none' : '1px solid',
+                lg: index === 0 ? 'none' : '1px solid',
+              }}
+              borderColor={tokens.border}
+              mt={{ base: index > 1 ? 5 : 0, lg: 0 }}
             >
-              <Text
-                color={isDarkMode ? 'gray.400' : 'gray.500'}
-                fontSize="xs"
-                fontWeight="semibold"
-                textTransform="uppercase"
-                letterSpacing="0.1em"
-              >
-                {metric.label}
-              </Text>
+              <CardLabel isDarkMode={isDarkMode}>{metric.label}</CardLabel>
               <Text
                 mt={1.5}
-                color={isDarkMode ? 'white' : 'gray.900'}
-                fontSize="xl"
-                fontWeight="bold"
+                color={tokens.text}
+                fontSize="22px"
+                fontWeight={600}
+                letterSpacing="-0.02em"
+                data-numeric
               >
                 {metric.value}
               </Text>
-              <Text mt={1} color={isDarkMode ? 'gray.400' : 'gray.600'} fontSize="sm">
+              <Text mt={0.5} color={tokens.textSubtle} fontSize="xs" lineHeight="1.45">
                 {metric.helper}
               </Text>
             </Box>
@@ -718,108 +743,157 @@ function SnapshotCard({
         </SimpleGrid>
       ) : null}
 
-      <Box
-        mt={6}
-        pt={4}
-        borderTop="1px solid"
-        borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.08)'}
+      {helper ? (
+        <Box mt={6} pt={4} borderTop="1px solid" borderColor={tokens.border}>
+          <Text color={tokens.textMuted} fontSize="sm" lineHeight="1.6">
+            {helper}
+          </Text>
+        </Box>
+      ) : null}
+    </CardShell>
+  );
+}
+
+function EmptyPeriodCard({ isDarkMode, periodLabel, lastPeriod, onAddShift }) {
+  const tokens = palette(isDarkMode);
+  return (
+    <CardShell isDarkMode={isDarkMode} accent={ACCENTS.primary} raised p={{ base: 5, md: 6 }}>
+      <CardLabel isDarkMode={isDarkMode}>Current pay period</CardLabel>
+      <Text
+        mt={3}
+        color={tokens.text}
+        fontSize={{ base: '26px', md: '30px' }}
+        fontWeight={650}
+        lineHeight="1.15"
+        letterSpacing="-0.025em"
+        data-numeric
       >
-        <Text color={isDarkMode ? 'gray.300' : 'gray.700'} fontSize="sm" lineHeight="tall">
-          {helper}
-        </Text>
+        No shifts logged yet in {periodLabel}
+      </Text>
+      <Text mt={2.5} color={tokens.textMuted} fontSize="sm" lineHeight="1.6" maxW="52ch">
+        {lastPeriod
+          ? `Your last period with shifts, ${lastPeriod.label}, finished at ${formatCurrency(
+              lastPeriod.totalTakeHome
+            )} take-home across ${lastPeriod.shifts} ${
+              lastPeriod.shifts === 1 ? 'shift' : 'shifts'
+            }. This period's numbers will fill in as you log.`
+          : 'Log your first shift and this dashboard will start tracking hours, tip-out, and what you actually keep.'}
+      </Text>
+
+      {lastPeriod ? (
+        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={0} mt={6}>
+          {[
+            { label: 'Hours', value: formatHours(lastPeriod.hours) },
+            { label: 'Sales', value: formatCurrency(lastPeriod.sales) },
+            { label: 'Net tips', value: formatCurrency(lastPeriod.netTips) },
+            { label: 'Take-home', value: formatCurrency(lastPeriod.totalTakeHome) },
+          ].map((metric, index) => (
+            <Box
+              key={metric.label}
+              pl={{ base: index % 2 === 0 ? 0 : 5, md: index === 0 ? 0 : 5 }}
+              pr={{ base: 3, md: 4 }}
+              mt={{ base: index > 1 ? 5 : 0, md: 0 }}
+              borderLeft={{
+                base: index % 2 === 0 ? 'none' : '1px solid',
+                md: index === 0 ? 'none' : '1px solid',
+              }}
+              borderColor={tokens.border}
+            >
+              <CardLabel isDarkMode={isDarkMode}>{metric.label}</CardLabel>
+              <Text
+                mt={1.5}
+                color={tokens.textMuted}
+                fontSize="20px"
+                fontWeight={600}
+                letterSpacing="-0.02em"
+                data-numeric
+              >
+                {metric.value}
+              </Text>
+            </Box>
+          ))}
+        </SimpleGrid>
+      ) : null}
+
+      <Box mt={6} pt={4} borderTop="1px solid" borderColor={tokens.border}>
+        <Button
+          leftIcon={<Plus size={16} />}
+          bg={ACCENTS.primary}
+          color="white"
+          size="sm"
+          _hover={{ bg: '#2f6fd0' }}
+          onClick={onAddShift}
+        >
+          Log a shift
+        </Button>
+        {lastPeriod ? (
+          <Text as="span" ml={3} color={tokens.textSubtle} fontSize="xs" data-numeric>
+            Figures above are from {lastPeriod.label}
+          </Text>
+        ) : null}
       </Box>
-    </Box>
+    </CardShell>
   );
 }
 
 function SummaryCard({ icon: Icon, isDarkMode, label, value, helper, accent }) {
+  const tokens = palette(isDarkMode);
   return (
-    <Box
-      bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.96)'}
-      borderRadius="28px"
-      p={{ base: 5, md: 5.5 }}
-      border="1px solid"
-      borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)'}
-      boxShadow={isDarkMode ? '0 20px 44px rgba(2, 6, 23, 0.34)' : '0 18px 36px rgba(15, 23, 42, 0.08)'}
-    >
-      <Flex justify="space-between" align="flex-start" gap={4}>
-        <Box>
+    <CardShell isDarkMode={isDarkMode} p={5} height="100%">
+      <Flex justify="space-between" align="flex-start" gap={3}>
+        <Box minW={0}>
+          <CardLabel isDarkMode={isDarkMode}>{label}</CardLabel>
           <Text
-            color={isDarkMode ? 'gray.400' : 'gray.600'}
-            fontSize="xs"
-            fontWeight="semibold"
-            letterSpacing="0.14em"
-            textTransform="uppercase"
-          >
-            {label}
-          </Text>
-          <Text
-            mt={3}
-            color={isDarkMode ? 'white' : 'gray.900'}
-            fontSize={{ base: '2xl', md: '2.5xl' }}
-            fontWeight="bold"
-            lineHeight="shorter"
+            mt={2}
+            color={tokens.text}
+            fontSize="28px"
+            fontWeight={650}
+            lineHeight="1.1"
+            letterSpacing="-0.025em"
+            data-numeric
           >
             {value}
           </Text>
-          <Text mt={2} color={isDarkMode ? 'gray.300' : 'gray.600'} fontSize="sm" lineHeight="tall">
-            {helper}
-          </Text>
         </Box>
-
         <Flex
           color={accent}
-          bg={`${accent}14`}
-          border="1px solid"
-          borderColor={`${accent}22`}
-          borderRadius="2xl"
-          p={3.5}
+          bg={`${accent}1a`}
+          borderRadius={RADII.md}
+          boxSize="34px"
           align="center"
           justify="center"
           flexShrink={0}
         >
-          <Icon size={24} />
+          <Icon size={17} strokeWidth={2.2} />
         </Flex>
       </Flex>
-    </Box>
+      <Text mt={2.5} color={tokens.textMuted} fontSize="13px" lineHeight="1.55" data-numeric>
+        {helper}
+      </Text>
+    </CardShell>
   );
 }
 
 function InsightCard({ isDarkMode, label, title, helper, accent }) {
+  const tokens = palette(isDarkMode);
   return (
-    <Box
-      bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.96)'}
-      borderRadius="28px"
-      p={{ base: 5, md: 5.5 }}
-      border="1px solid"
-      borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)'}
-      boxShadow={isDarkMode ? '0 20px 44px rgba(2, 6, 23, 0.34)' : '0 18px 36px rgba(15, 23, 42, 0.08)'}
-      position="relative"
-      overflow="hidden"
-    >
-      <Box position="absolute" insetX={0} top={0} height="4px" bg={accent} opacity={0.9} />
+    <CardShell isDarkMode={isDarkMode} accent={accent} p={5} height="100%">
+      <CardLabel isDarkMode={isDarkMode}>{label}</CardLabel>
       <Text
-        color={isDarkMode ? 'gray.400' : 'gray.600'}
-        fontSize="xs"
-        fontWeight="semibold"
-        letterSpacing="0.14em"
-        textTransform="uppercase"
-      >
-        {label}
-      </Text>
-      <Text
-        mt={3}
-        color={isDarkMode ? 'white' : 'gray.900'}
-        fontSize={{ base: 'xl', md: '2xl' }}
-        fontWeight="bold"
-        lineHeight="shorter"
+        mt={2}
+        color={tokens.text}
+        fontSize="19px"
+        fontWeight={650}
+        lineHeight="1.25"
+        letterSpacing="-0.02em"
+        data-numeric
       >
         {title}
       </Text>
-      <Text mt={2} color={isDarkMode ? 'gray.300' : 'gray.600'} fontSize="sm" lineHeight="tall">
+      <Text mt={2} color={tokens.textMuted} fontSize="13px" lineHeight="1.55" data-numeric>
         {helper}
       </Text>
-    </Box>
+    </CardShell>
   );
 }
 
@@ -883,6 +957,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [lastDeletedShift, setLastDeletedShift] = useState(null);
   const isDarkMode = uiMode === 'dark';
+  const themeTokens = palette(isDarkMode);
   const theme = useMemo(() => createTheme(uiMode), [uiMode]);
   const deleteUndoTimeoutRef = useRef(null);
 
@@ -1371,6 +1446,17 @@ function App() {
     weekOptions,
   ]);
 
+  // The current pay period is frequently empty (a new period starts every two
+  // weeks). Rather than render a screen of $0.00, fall back to the most recent
+  // period that has shifts so the empty state can say something useful.
+  const lastLoggedPeriod = useMemo(() => {
+    return (
+      [...payPeriods]
+        .reverse()
+        .find((period) => period.key !== payPeriodStats.key && period.shifts > 0) || null
+    );
+  }, [payPeriods, payPeriodStats.key]);
+
   const topSummary = useMemo(() => {
     if (historyFilterType === 'payPeriod' && historyFilterValue) {
       return {
@@ -1390,7 +1476,7 @@ function App() {
     return {
       modeLabel: 'Current pay period',
       title: payPeriodStats.label,
-      helper: 'This hero tracks the pay period you are in right now, with the strongest signals pulled to the top.',
+      helper: '',
       takeHome: payPeriodStats.totalTakeHome,
       netTips: payPeriodStats.netTips,
       tipOut: payPeriodStats.tipOut,
@@ -1975,83 +2061,83 @@ function App() {
     content = (
       <Box minH="100vh" bg="transparent">
         <Box
-          bg={isDarkMode ? 'rgba(15, 23, 42, 0.84)' : 'rgba(247, 245, 241, 0.84)'}
-          backdropFilter="blur(18px)"
+          as="header"
+          position="sticky"
+          top={0}
+          zIndex={20}
+          bg={isDarkMode ? 'rgba(11, 18, 32, 0.72)' : 'rgba(246, 248, 252, 0.72)'}
+          backdropFilter="blur(20px) saturate(180%)"
           borderBottom="1px solid"
-          borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}
+          borderColor={themeTokens.border}
           px={{ base: 4, md: 6 }}
-          py={{ base: 5, md: 6 }}
+          py={3}
         >
           <Flex
             maxW="1280px"
             mx="auto"
-            align={{ base: 'flex-start', md: 'center' }}
+            align="center"
             justify="space-between"
-            gap={4}
-            direction={{ base: 'column', md: 'row' }}
+            gap={3}
+            rowGap={3}
+            wrap={{ base: 'wrap', md: 'nowrap' }}
           >
-            <Box>
-              <Text fontSize="xs" color="brand.600" fontWeight="semibold" letterSpacing="0.18em" textTransform="uppercase">
-                Tips Cafe
-              </Text>
-              <Text mt={2} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="bold" letterSpacing="-0.03em" color={isDarkMode ? 'white' : '#18222c'}>
-                Earnings Tracker
-              </Text>
-              <HStack spacing={3} mt={1} flexWrap="wrap">
-                <Text color={isDarkMode ? 'gray.300' : 'gray.800'} fontSize="sm" maxW="720px" lineHeight="tall">
-                  A cleaner way to log shifts, review checks, and see what you actually keep after tip-out.
+            {/* Brand: a compact mark plus a single line of identity. The old
+                header stacked a wordmark, an H1, and a marketing tagline — that
+                copy lives in the About tab, not in the chrome of a signed-in app. */}
+            <HStack spacing={3} minW={0}>
+              <Flex
+                boxSize="34px"
+                flexShrink={0}
+                align="center"
+                justify="center"
+                borderRadius={RADII.md}
+                bg={ACCENTS.primary}
+                color="white"
+                fontWeight={700}
+                fontSize="13px"
+                letterSpacing="-0.02em"
+                boxShadow={`0 4px 14px ${ACCENTS.primaryMuted}`}
+              >
+                TC
+              </Flex>
+              <Box minW={0}>
+                <Text
+                  fontSize="15px"
+                  fontWeight={650}
+                  letterSpacing="-0.015em"
+                  color={themeTokens.text}
+                  lineHeight="1.2"
+                  noOfLines={1}
+                >
+                  Earnings Tracker
                 </Text>
-                <Badge
-                  bg={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}
-                  color={isDarkMode ? 'gray.100' : 'gray.800'}
-                  borderRadius="full"
-                  px={3}
-                  py={1}
-                >
-                  {selectedJob ? `Viewing ${selectedJob.name}` : 'Viewing all jobs'}
-                </Badge>
-                <Badge
-                  bg={isCloudMode ? 'rgba(59,130,246,0.1)' : 'rgba(245,158,11,0.12)'}
-                  color={isCloudMode ? 'brand.700' : '#92400e'}
-                  borderRadius="full"
-                  px={3}
-                  py={1}
-                  border="1px solid"
-                  borderColor={isCloudMode ? 'rgba(59,130,246,0.18)' : 'rgba(245,158,11,0.18)'}
-                >
-                  {isCloudMode ? 'Synced Account' : 'Local Device Mode'}
-                </Badge>
-              </HStack>
-            </Box>
+                <HStack spacing={1.5} mt="1px">
+                  <Text fontSize="11px" color={themeTokens.textSubtle} noOfLines={1}>
+                    {selectedJob ? selectedJob.name : 'All jobs'}
+                  </Text>
+                  <Box boxSize="3px" borderRadius="full" bg={themeTokens.textSubtle} opacity={0.6} />
+                  <Text fontSize="11px" color={themeTokens.textSubtle} noOfLines={1}>
+                    {isCloudMode ? 'Synced' : 'Local device'}
+                  </Text>
+                </HStack>
+              </Box>
+            </HStack>
 
-            <HStack spacing={2} alignSelf={{ base: 'stretch', md: 'center' }} flexWrap="wrap">
-              {isCloudMode ? (
-                <>
-                  <Badge
-                    bg={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}
-                    color={isDarkMode ? 'gray.100' : 'gray.800'}
-                    borderRadius="full"
-                    px={3}
-                    py={1}
-                  >
-                    {session.user.email}
-                  </Badge>
-                  <IconButton
-                    icon={<LogOut size={16} />}
-                    variant="outline"
-                    borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
-                    color={isDarkMode ? 'gray.100' : 'gray.900'}
-                    bg={isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'white'}
-                    aria-label="Sign out"
-                    onClick={handleSignOut}
-                  />
-                </>
-              ) : (
+            <HStack
+              spacing={2}
+              flexWrap="wrap"
+              rowGap={2}
+              justify="flex-end"
+              flex={{ base: '1 1 100%', sm: '0 1 auto' }}
+            >
+              {!isCloudMode ? (
                 <>
                   <Select
                     value={activeProfileId}
                     onChange={(event) => handleChangeProfile(event.target.value)}
-                    maxW={{ base: 'full', md: '220px' }}
+                    size="sm"
+                    maxW="160px"
+                    display={{ base: 'none', lg: 'block' }}
                   >
                     {(profileStore.profiles || []).map((profile) => (
                       <option key={profile.id} value={profile.id}>
@@ -2060,20 +2146,22 @@ function App() {
                     ))}
                   </Select>
                   <Button
-                    variant="outline"
-                    borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
-                    color={isDarkMode ? 'gray.100' : 'gray.900'}
+                    variant="ghost"
+                    size="sm"
+                    color={themeTokens.textMuted}
+                    display={{ base: 'none', lg: 'inline-flex' }}
                     onClick={handleCreateProfile}
                   >
-                    New Profile
+                    New profile
                   </Button>
                 </>
-              )}
+              ) : null}
 
               <Select
                 value={selectedJobId}
                 onChange={(event) => setSelectedJobId(event.target.value)}
-                maxW={{ base: 'full', md: '220px' }}
+                size="sm"
+                maxW={{ base: '130px', md: '170px' }}
                 aria-label="Filter by job"
               >
                 <option value={ALL_JOBS_VALUE}>All jobs</option>
@@ -2085,35 +2173,98 @@ function App() {
               </Select>
 
               <IconButton
-                icon={isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-                variant="outline"
-                borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
-                color={isDarkMode ? 'gray.100' : 'gray.900'}
-                bg={isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'white'}
+                icon={isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+                variant="ghost"
+                size="sm"
+                color={themeTokens.textMuted}
                 aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
                 onClick={() => setUiMode((current) => (current === 'dark' ? 'light' : 'dark'))}
               />
               <IconButton
-                icon={<Settings size={16} />}
-                variant="outline"
-                borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
-                color={isDarkMode ? 'gray.100' : 'gray.900'}
-                bg={isDarkMode ? 'rgba(15, 23, 42, 0.92)' : 'white'}
+                icon={<Settings size={15} />}
+                variant="ghost"
+                size="sm"
+                color={themeTokens.textMuted}
                 aria-label="Open settings"
                 onClick={() => setIsSettingsOpen(true)}
               />
-              <Button
-                leftIcon={<Download size={16} />}
-                variant="outline"
-                borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.16)' : 'rgba(22, 33, 43, 0.1)'}
-                color={isDarkMode ? 'gray.100' : 'gray.900'}
+              <IconButton
+                icon={<Download size={15} />}
+                variant="ghost"
+                size="sm"
+                color={themeTokens.textMuted}
+                aria-label="Export CSV"
                 onClick={handleExportCsv}
+              />
+
+              <Button
+                leftIcon={<Plus size={15} />}
+                size="sm"
+                bg={ACCENTS.primary}
+                color="white"
+                _hover={{ bg: '#2f6fd0' }}
+                onClick={openNewShiftDialog}
               >
-                Export CSV
+                Add shift
               </Button>
-              <Button leftIcon={<Plus size={16} />} bg="brand.600" color="white" _hover={{ bg: 'brand.700' }} onClick={openNewShiftDialog}>
-                Add Shift
-              </Button>
+
+              {/* The signed-in address used to sit in the bar as a full-width
+                  all-caps pill. It moves into an avatar menu, where an email
+                  belongs. */}
+              {isCloudMode ? (
+                <Menu placement="bottom-end">
+                  <MenuButton
+                    as={IconButton}
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Account menu"
+                    icon={
+                      <Flex
+                        boxSize="26px"
+                        align="center"
+                        justify="center"
+                        borderRadius="full"
+                        bg={themeTokens.surfaceSunken}
+                        border="1px solid"
+                        borderColor={themeTokens.borderStrong}
+                        color={themeTokens.text}
+                        fontSize="11px"
+                        fontWeight={650}
+                      >
+                        {(session.user.email || '?').slice(0, 2).toUpperCase()}
+                      </Flex>
+                    }
+                  />
+                  <MenuList
+                    bg={themeTokens.surfaceRaised}
+                    borderColor={themeTokens.border}
+                    borderRadius={RADII.md}
+                    boxShadow={themeTokens.shadowRaised}
+                    py={1}
+                    minW="230px"
+                  >
+                    <Box px={3} py={2}>
+                      <Text fontSize="11px" color={themeTokens.textSubtle}>
+                        Signed in as
+                      </Text>
+                      <Text fontSize="13px" color={themeTokens.text} fontWeight={500} noOfLines={1}>
+                        {session.user.email}
+                      </Text>
+                    </Box>
+                    <Box height="1px" bg={themeTokens.border} my={1} />
+                    <MenuItem
+                      icon={<LogOut size={14} />}
+                      bg="transparent"
+                      color={themeTokens.textMuted}
+                      fontSize="13px"
+                      _hover={{ bg: themeTokens.surfaceSunken, color: themeTokens.text }}
+                      onClick={handleSignOut}
+                    >
+                      Sign out
+                    </MenuItem>
+                  </MenuList>
+                </Menu>
+              ) : null}
             </HStack>
           </Flex>
         </Box>
@@ -2163,9 +2314,12 @@ function App() {
               <Alert
                 status="info"
                 mb={4}
-                borderRadius="3xl"
-                bg="rgba(255, 255, 255, 0.9)"
-                border="1px solid rgba(22, 33, 43, 0.06)"
+                borderRadius={RADII.lg}
+                bg={themeTokens.surface}
+                color={themeTokens.textMuted}
+                fontSize="sm"
+                border="1px solid"
+                borderColor={themeTokens.border}
               >
                 <AlertIcon />
                 <AlertDescription>
@@ -2192,7 +2346,16 @@ function App() {
             ) : null}
 
             {cloudError ? (
-              <Alert status="error" mb={4} borderRadius="3xl" bg="red.900" color="red.100">
+              <Alert
+                status="error"
+                mb={4}
+                borderRadius={RADII.lg}
+                fontSize="sm"
+                bg={isDarkMode ? 'rgba(136, 19, 55, 0.35)' : 'rgba(254, 226, 226, 0.9)'}
+                color={isDarkMode ? '#fecdd3' : '#9f1239'}
+                border="1px solid"
+                borderColor={isDarkMode ? 'rgba(251, 113, 133, 0.25)' : 'rgba(159, 18, 57, 0.15)'}
+              >
                 <AlertIcon />
                 <AlertDescription>{cloudError}</AlertDescription>
               </Alert>
@@ -2259,8 +2422,16 @@ function App() {
               </Box>
             ) : null}
 
-            <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={4} mb={6}>
-              <Box gridColumn={{ base: 'auto', xl: 'span 2' }}>
+            <Box display="grid" gap={4} mb={5}>
+              <Box>
+                {topSummary.shifts === 0 ? (
+                  <EmptyPeriodCard
+                    isDarkMode={isDarkMode}
+                    periodLabel={topSummary.title}
+                    lastPeriod={lastLoggedPeriod}
+                    onAddShift={openNewShiftDialog}
+                  />
+                ) : (
                 <SnapshotCard
                   isDarkMode={isDarkMode}
                   label={topSummary.modeLabel}
@@ -2272,7 +2443,7 @@ function App() {
                     payPeriodComparison.takeHomeDelta
                   )} vs last period`}
                   helper={topSummary.helper}
-                  accent="#38bdf8"
+                  accent={ACCENTS.primary}
                   metrics={[
                     {
                       label: 'Hours worked',
@@ -2298,8 +2469,11 @@ function App() {
                     },
                   ]}
                 />
+                )}
               </Box>
-              <Box display="grid" gap={4}>
+              <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap={4} alignItems="start">
+                {topSummary.shifts > 0 ? (
+                <>
                 <SummaryCard
                   icon={TrendingUp}
                   isDarkMode={isDarkMode}
@@ -2310,7 +2484,7 @@ function App() {
                   )} take-home change from ${formatCurrency(
                     payPeriodComparison.previousTakeHome
                   )}.`}
-                  accent="#68d391"
+                  accent={ACCENTS.positive}
                 />
                 <SummaryCard
                   icon={Target}
@@ -2322,17 +2496,19 @@ function App() {
                   }, pacing toward ${formatCurrency(
                     payPeriodForecast.projectedNetTips
                   )} in net tips.`}
-                  accent="#f6ad55"
+                  accent={ACCENTS.warning}
                 />
+                </>
+                ) : null}
                 <SummaryCard
-                  icon={TrendingDown}
+                  icon={Wallet}
                   isDarkMode={isDarkMode}
                   label="Yearly wages"
                   value={formatCurrency(yearlyStats.totalTakeHome)}
                   helper={`${yearlyStats.year} running total ${
                     selectedJob ? `for ${selectedJob.name}.` : 'across all saved shifts.'
                   }`}
-                  accent="#c084fc"
+                  accent={ACCENTS.neutral}
                 />
                 <InsightCard
                   isDarkMode={isDarkMode}
@@ -2353,10 +2529,10 @@ function App() {
                         )} tip-out this period.`
                       : 'Add a few more shifts and the dashboard will start surfacing smarter patterns.'
                   }
-                  accent="#38bdf8"
+                  accent={ACCENTS.primary}
                 />
-              </Box>
-            </SimpleGrid>
+              </SimpleGrid>
+            </Box>
 
             {view === 'byDay' ? (
               <Flex

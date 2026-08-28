@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import {
   Box,
+  Button,
   Flex,
   Heading,
   HStack,
-  Progress,
   SimpleGrid,
   Text,
 } from '@chakra-ui/react';
@@ -11,11 +12,20 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
+import {
+  formatCompactCurrency,
+  formatCurrency,
+  formatHours,
+  formatSignedCurrency,
+} from '../utils/format';
+import { ACCENTS, RADII, palette, series } from '../theme/tokens';
 
 function startOfDay(date) {
   const normalized = new Date(date);
@@ -124,8 +134,18 @@ export function getPeriods(shifts, hourlyRate, tipOutRate, settings) {
     return [];
   }
 
-  const sortedShifts = [...shifts].sort((left, right) => {
-    return new Date(left.date) - new Date(right.date);
+  // A shift with a missing or malformed date used to flow straight through
+  // getPeriodStart -> getPeriodKey and produce a "NaN-NaN-NaN" key, which the
+  // history list then rendered as "Invalid Date - Invalid Date". Drop those
+  // rows here so one bad record can't manufacture a phantom pay period.
+  const datedShifts = shifts.filter((shift) => isValidDateInputValue(shift?.date));
+
+  if (!datedShifts.length) {
+    return [];
+  }
+
+  const sortedShifts = [...datedShifts].sort((left, right) => {
+    return new Date(`${left.date}T00:00:00`) - new Date(`${right.date}T00:00:00`);
   });
   const groupedPeriods = new Map();
 
@@ -148,29 +168,131 @@ export function getPeriods(shifts, hourlyRate, tipOutRate, settings) {
     .sort((left, right) => parsePeriodKey(left.key) - parsePeriodKey(right.key));
 }
 
-function Metric({ label, value, accent = 'white' }) {
+function PerformanceTile({ isDarkMode, label, value, valueColor, helper, isFirst = false }) {
+  const tokens = palette(isDarkMode);
   return (
-    <Box>
-      <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="0.08em">
+    <Box
+      px={{ base: 0, sm: isFirst ? 0 : 5 }}
+      pr={{ base: 0, sm: 4 }}
+      py={{ base: 3, sm: 0 }}
+      borderLeft={{ base: 'none', sm: isFirst ? 'none' : '1px solid' }}
+      borderTop={{ base: isFirst ? 'none' : '1px solid', sm: 'none' }}
+      borderColor={tokens.border}
+    >
+      <Text
+        fontSize="11px"
+        color={tokens.textMuted}
+        textTransform="uppercase"
+        letterSpacing="0.08em"
+        fontWeight={600}
+      >
         {label}
       </Text>
-      <Text mt={1} fontSize="2xl" fontWeight="bold" color={accent}>
+      <Text
+        mt={1.5}
+        fontSize="26px"
+        fontWeight={650}
+        lineHeight="1.1"
+        letterSpacing="-0.025em"
+        color={valueColor || tokens.text}
+        data-numeric
+      >
         {value}
+      </Text>
+      <Text mt={1} color={tokens.textSubtle} fontSize="xs" lineHeight="1.5" data-numeric>
+        {helper}
       </Text>
     </Box>
   );
 }
 
-function formatCurrency(value) {
-  return `$${value.toFixed(2)}`;
+function GoalMeter({ isDarkMode, label, current, target, progress, color }) {
+  const tokens = palette(isDarkMode);
+  return (
+    <Box>
+      <Flex justify="space-between" align="baseline" mb={2}>
+        <Text fontSize="13px" color={tokens.textMuted}>
+          {label}
+        </Text>
+        <Text fontSize="13px" fontWeight={600} color={tokens.text} data-numeric>
+          {current}{' '}
+          <Box as="span" color={tokens.textSubtle} fontWeight={400}>
+            / {target}
+          </Box>
+        </Text>
+      </Flex>
+      <Box height="6px" borderRadius="full" bg={tokens.surfaceSunken} overflow="hidden">
+        <Box
+          height="100%"
+          width={`${Math.max(0, Math.min(100, progress))}%`}
+          bg={color}
+          borderRadius="full"
+          transition="width 320ms cubic-bezier(0.4, 0, 0.2, 1)"
+        />
+      </Box>
+    </Box>
+  );
 }
 
-function formatSignedCurrency(value) {
-  if (!Number.isFinite(value) || value === 0) {
-    return '$0.00';
+
+const HISTORY_PAGE_SIZE = 6;
+
+function PeriodTooltip({ active, payload, label, isDarkMode }) {
+  if (!active || !payload?.length) {
+    return null;
   }
 
-  return `${value > 0 ? '+' : '-'}$${Math.abs(value).toFixed(2)}`;
+  const tokens = palette(isDarkMode);
+  const byKey = Object.fromEntries(payload.map((entry) => [entry.dataKey, entry]));
+  const netTips = byKey.netTips?.value ?? 0;
+  const tipOut = byKey.tipOut?.value ?? 0;
+
+  return (
+    <Box
+      bg={tokens.surfaceRaised}
+      border="1px solid"
+      borderColor={tokens.borderStrong}
+      borderRadius={RADII.md}
+      boxShadow={tokens.shadowRaised}
+      px={3}
+      py={2.5}
+      minW="180px"
+    >
+      <Text fontSize="xs" fontWeight={600} color={tokens.text} data-numeric>
+        {label}
+      </Text>
+      <Box mt={2} display="grid" gap={1.5}>
+        {payload.map((entry) => (
+          <Flex key={entry.dataKey} justify="space-between" align="center" gap={4}>
+            <HStack spacing={2}>
+              <Box boxSize="8px" borderRadius="full" bg={entry.color} flexShrink={0} />
+              <Text fontSize="xs" color={tokens.textMuted}>
+                {entry.name}
+              </Text>
+            </HStack>
+            <Text fontSize="xs" fontWeight={600} color={tokens.text} data-numeric>
+              {formatCurrency(entry.value)}
+            </Text>
+          </Flex>
+        ))}
+        <Flex
+          justify="space-between"
+          align="center"
+          gap={4}
+          pt={1.5}
+          borderTop="1px solid"
+          borderColor={tokens.border}
+        >
+          <Text fontSize="xs" color={tokens.textMuted}>
+            Gross tips
+          </Text>
+          <Text fontSize="xs" fontWeight={600} color={tokens.text} data-numeric>
+            {formatCurrency(netTips + tipOut)}
+          </Text>
+        </Flex>
+      </Box>
+    </Box>
+  );
 }
 
 function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod }) {
@@ -184,6 +306,19 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
   const tipGoal = settings?.tipGoal || 100;
   const todayPeriodStart = getPeriodStart(new Date(), settings);
   const todayPeriodKey = getPeriodKey(todayPeriodStart);
+  const tokens = palette(isDarkMode);
+  const seriesColors = series(isDarkMode);
+  const [showAllHistory, setShowAllHistory] = useState(false);
+
+  // Chronological for the chart; newest-first for the history list.
+  const chartData = periods;
+  const orderedPeriods = [...periods].reverse();
+  const visiblePeriods = showAllHistory
+    ? orderedPeriods
+    : orderedPeriods.slice(0, HISTORY_PAGE_SIZE);
+  const averageNetTips = periods.length
+    ? periods.reduce((sum, period) => sum + period.netTips, 0) / periods.length
+    : 0;
 
   if (!periods.length) {
     return (
@@ -191,15 +326,15 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
         textAlign="center"
         py={12}
         px={6}
-        bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
-        borderRadius="3xl"
+        bg={tokens.surface}
+        borderRadius={RADII.xl}
         border="1px solid"
-        borderColor="rgba(22, 33, 43, 0.06)"
+        borderColor={tokens.border}
       >
-        <Text fontSize="lg" fontWeight="semibold">
+        <Text fontSize="lg" fontWeight={600} color={tokens.text}>
           No pay-period data yet
         </Text>
-        <Text color="gray.400" mt={2}>
+        <Text color={tokens.textMuted} mt={2} fontSize="sm">
           Add a few shifts and this view will track your hours, tip-out, and take-home by pay period.
         </Text>
       </Box>
@@ -231,213 +366,320 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
   return (
     <Box display="grid" gap={4}>
       <Box
-        bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
-        borderRadius="3xl"
+        bg={tokens.surface}
+        backdropFilter="blur(12px)"
+        borderRadius={RADII.xl}
         border="1px solid"
-        borderColor="rgba(22, 33, 43, 0.06)"
+        borderColor={tokens.border}
         p={{ base: 5, md: 6 }}
-        boxShadow="0 18px 36px rgba(34, 46, 56, 0.06)"
+        boxShadow={tokens.shadow}
       >
-        <Flex justify="space-between" align={{ base: 'flex-start', md: 'center' }} gap={4} mb={5} direction={{ base: 'column', md: 'row' }}>
+        <Flex
+          justify="space-between"
+          align={{ base: 'flex-start', md: 'baseline' }}
+          gap={4}
+          mb={5}
+          direction={{ base: 'column', md: 'row' }}
+        >
           <Box>
-            <Heading size="md">Pay period performance</Heading>
-            <Text mt={1} color="gray.400">
-              {currentPeriod.label}
+            <Heading size="md" letterSpacing="-0.02em">
+              Pay period performance
+            </Heading>
+            <Text mt={1} color={tokens.textMuted} fontSize="sm" data-numeric>
+              {currentPeriod.label} · tip-out at {settings?.tipOutRate || 0}% of sales
             </Text>
           </Box>
-          <Text color="gray.400" fontSize="sm">
+          <Text color={tokens.textSubtle} fontSize="sm" data-numeric>
             {currentPeriod.shifts} {currentPeriod.shifts === 1 ? 'shift' : 'shifts'} logged
           </Text>
         </Flex>
 
-        <Text mb={5} color="gray.400" fontSize="sm">
-          Tip-out is calculated at {settings?.tipOutRate || 0}% of total sales for each shift, so
-          this section focuses on whether the period is improving and whether you are pacing toward
-          your goals.
-        </Text>
+        {/*
+          Effective hourly, sales, hours and take-home already headline the
+          dashboard hero. This section only carries what is specific to it:
+          movement against the previous period, per-shift average, and pacing
+          against the goals.
 
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mb={6}>
+          With no shifts logged, every one of those is $0.00 — a block of zeros
+          that says nothing. Point at the trend below instead.
+        */}
+        {currentPeriod.shifts === 0 ? (
           <Box
-            bg={isDarkMode ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255,255,255,0.82)'}
-            borderRadius="2xl"
-            p={4}
-            border="1px solid"
-            borderColor="rgba(22, 33, 43, 0.06)"
+            py={7}
+            px={5}
+            textAlign="center"
+            borderRadius={RADII.md}
+            border="1px dashed"
+            borderColor={tokens.border}
+            bg={tokens.surfaceSunken}
           >
-            <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="0.08em">
-              Compare
+            <Text fontSize="sm" fontWeight={600} color={tokens.text}>
+              Nothing logged in this period yet
             </Text>
-            <Text mt={2} fontSize="2xl" fontWeight="bold" color={takeHomeDelta >= 0 ? '#68d391' : '#fc8181'}>
-              {formatSignedCurrency(takeHomeDelta)}
-            </Text>
-            <Text mt={1} color="gray.400" fontSize="sm">
-              {previousPeriod
-                ? `Take-home vs ${previousPeriod.label}`
-                : 'This becomes more useful once you have a previous pay period.'}
+            <Text mt={1} fontSize="13px" color={tokens.textMuted} maxW="46ch" mx="auto">
+              Comparisons and goal pacing start once the first shift lands. Your
+              history is unaffected — the trend below still covers every saved period.
             </Text>
           </Box>
-
-          <Box
-            bg={isDarkMode ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255,255,255,0.82)'}
-            borderRadius="2xl"
-            p={4}
-            border="1px solid"
-            borderColor="rgba(22, 33, 43, 0.06)"
-          >
-            <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="0.08em">
-              Effective hourly
-            </Text>
-            <Text mt={2} fontSize="2xl" fontWeight="bold" color="#7dd3fc">
-              {formatCurrency(effectiveHourly)}
-            </Text>
-            <Text mt={1} color="gray.400" fontSize="sm">
-              Real take-home per hour for the period you are viewing.
-            </Text>
-          </Box>
-
-          <Box
-            bg={isDarkMode ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255,255,255,0.82)'}
-            borderRadius="2xl"
-            p={4}
-            border="1px solid"
-            borderColor="rgba(22, 33, 43, 0.06)"
-          >
-            <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="0.08em">
-              Avg shift take-home
-            </Text>
-            <Text mt={2} fontSize="2xl" fontWeight="bold" color="#f687b3">
-              {formatCurrency(avgShiftTakeHome)}
-            </Text>
-            <Text mt={1} color="gray.400" fontSize="sm">
-              {formatSignedCurrency(netTipsDelta)} net-tip change from the previous pay period.
-            </Text>
-          </Box>
-        </SimpleGrid>
-
-        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={5} mb={6}>
-          <Metric label="Hours" value={currentPeriod.hours.toFixed(1)} accent="#f6ad55" />
-          <Metric label="Sales" value={formatCurrency(currentPeriod.sales)} accent="#fbd38d" />
-          <Metric label="Net tips" value={formatCurrency(currentPeriod.netTips)} accent="#2563eb" />
-          <Metric label="Take-home" value={formatCurrency(currentPeriod.totalTakeHome)} accent="#68d391" />
+        ) : (
+        <>
+        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={0} mb={6}>
+          <PerformanceTile
+            isDarkMode={isDarkMode}
+            label={previousPeriod ? 'vs previous period' : 'Change'}
+            value={formatSignedCurrency(takeHomeDelta)}
+            valueColor={
+              takeHomeDelta === 0
+                ? tokens.text
+                : takeHomeDelta > 0
+                  ? ACCENTS.positive
+                  : ACCENTS.negative
+            }
+            helper={
+              previousPeriod
+                ? `Take-home against ${previousPeriod.label}`
+                : 'Log a second pay period to unlock this comparison.'
+            }
+            isFirst
+          />
+          <PerformanceTile
+            isDarkMode={isDarkMode}
+            label="Avg shift take-home"
+            value={formatCurrency(avgShiftTakeHome)}
+            helper={`${formatSignedCurrency(netTipsDelta)} net-tip change from the previous period.`}
+          />
+          <PerformanceTile
+            isDarkMode={isDarkMode}
+            label="Net tips this period"
+            value={formatCurrency(currentPeriod.netTips)}
+            helper={`${formatCurrency(currentPeriod.tipOut)} went out in tip-out.`}
+          />
         </SimpleGrid>
 
         <Box display="grid" gap={4}>
-          <Box>
-            <Flex justify="space-between" mb={1}>
-              <Text fontSize="sm" color="gray.400">
-                Hours goal
-              </Text>
-              <Text fontSize="sm" fontWeight="semibold" color="orange.200">
-                {currentPeriod.hours.toFixed(1)} / {hoursGoal}
-              </Text>
-            </Flex>
-            <Progress value={hoursProgress} size="sm" rounded="full" colorScheme="orange" />
-          </Box>
-
-          <Box>
-            <Flex justify="space-between" mb={1}>
-              <Text fontSize="sm" color="gray.400">
-                Net tip goal after tip-out
-              </Text>
-              <Text fontSize="sm" fontWeight="semibold" color="brand.700">
-                ${currentPeriod.netTips.toFixed(0)} / ${tipGoal}
-              </Text>
-            </Flex>
-            <Progress value={tipsProgress} size="sm" rounded="full" colorScheme="green" />
-          </Box>
+          <GoalMeter
+            isDarkMode={isDarkMode}
+            label="Hours"
+            current={formatHours(currentPeriod.hours)}
+            target={formatHours(hoursGoal)}
+            progress={hoursProgress}
+            color={ACCENTS.warning}
+          />
+          <GoalMeter
+            isDarkMode={isDarkMode}
+            label="Net tips after tip-out"
+            current={formatCurrency(currentPeriod.netTips)}
+            target={formatCurrency(tipGoal)}
+            progress={tipsProgress}
+            color={ACCENTS.primary}
+          />
         </Box>
+        </>
+        )}
       </Box>
 
       {periods.length ? (
         <Box
-          bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
-          borderRadius="3xl"
+          bg={tokens.surface}
+          backdropFilter="blur(12px)"
+          borderRadius={RADII.xl}
           border="1px solid"
-          borderColor="rgba(22, 33, 43, 0.06)"
+          borderColor={tokens.border}
           p={{ base: 5, md: 6 }}
-          boxShadow="0 18px 36px rgba(34, 46, 56, 0.06)"
+          boxShadow={tokens.shadow}
         >
-          <Heading size="sm" mb={4}>
-            Tip-out and net tip trend
-          </Heading>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={periods} margin={{ top: 8, right: 16, left: -16, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-              <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#0f172a',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: '14px',
-                }}
+          <Flex justify="space-between" align="baseline" gap={4} mb={1} wrap="wrap">
+            <Heading size="sm" letterSpacing="-0.02em">
+              Gross tips by pay period
+            </Heading>
+            <Text color={tokens.textSubtle} fontSize="xs" data-numeric>
+              Avg net {formatCurrency(averageNetTips)} per period
+            </Text>
+          </Flex>
+          <Text color={tokens.textMuted} fontSize="13px" mb={4}>
+            Each bar is one period&rsquo;s gross tips, split into what you kept and what
+            went to tip-out.
+          </Text>
+
+          {/*
+            Hours used to be plotted here alongside dollars. On a single axis a
+            60-hour bar is invisible next to a $2,600 bar, so the series was
+            noise; hours now live in the progress meters above, where they have
+            their own scale.
+          */}
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={chartData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+              <defs>
+                <linearGradient id="netTipsFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={seriesColors.netTips} stopOpacity={0.95} />
+                  <stop offset="100%" stopColor={seriesColors.netTips} stopOpacity={0.65} />
+                </linearGradient>
+                <linearGradient id="tipOutFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={seriesColors.tipOut} stopOpacity={0.9} />
+                  <stop offset="100%" stopColor={seriesColors.tipOut} stopOpacity={0.6} />
+                </linearGradient>
+              </defs>
+              {/* Horizontal rules only — vertical gridlines add nothing over a
+                  categorical axis and busy up the plot. */}
+              <CartesianGrid
+                vertical={false}
+                stroke={tokens.grid}
+                strokeDasharray="0"
               />
-              <Bar dataKey="hours" fill="#f6ad55" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="tipOut" fill="#fc8181" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="netTips" fill="#68d391" radius={[6, 6, 0, 0]} />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: tokens.textSubtle, fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: tokens.grid }}
+                interval="preserveStartEnd"
+                minTickGap={28}
+              />
+              <YAxis
+                tick={{ fill: tokens.textSubtle, fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                width={56}
+                tickFormatter={(value) => formatCompactCurrency(value)}
+              />
+              <Tooltip
+                cursor={{ fill: tokens.grid }}
+                content={<PeriodTooltip isDarkMode={isDarkMode} />}
+              />
+              <Legend
+                verticalAlign="top"
+                align="left"
+                height={32}
+                iconType="circle"
+                iconSize={8}
+                formatter={(value) => (
+                  <span style={{ color: tokens.textMuted, fontSize: 12 }}>{value}</span>
+                )}
+              />
+              {averageNetTips > 0 ? (
+                <ReferenceLine
+                  y={averageNetTips}
+                  stroke={tokens.textSubtle}
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.7}
+                />
+              ) : null}
+              {/* Stacked: net + tip-out sums to gross tips. The 2px stroke in the
+                  surface color keeps the two segments from fusing visually. */}
+              <Bar
+                dataKey="netTips"
+                name="Net tips"
+                stackId="tips"
+                fill="url(#netTipsFill)"
+                stroke={tokens.canvas}
+                strokeWidth={2}
+              />
+              <Bar
+                dataKey="tipOut"
+                name="Tip-out"
+                stackId="tips"
+                fill="url(#tipOutFill)"
+                stroke={tokens.canvas}
+                strokeWidth={2}
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
 
-          <Box mt={5} display="grid" gap={2}>
-            <Heading size="xs" color="gray.400" textTransform="uppercase" letterSpacing="0.08em">
-              Pay period history
-            </Heading>
-            {periods
-              .slice()
-              .reverse()
-              .map((period) => (
-                <Flex
-                  key={period.key}
-                  justify="space-between"
-                  align={{ base: 'flex-start', md: 'center' }}
-                  direction={{ base: 'column', md: 'row' }}
-                  gap={3}
-                  p={3}
-                  borderRadius="xl"
-                  bg={period.key === currentPeriod.key ? 'rgba(22, 33, 43, 0.04)' : 'transparent'}
-                  border="1px solid"
-                  borderColor="rgba(22, 33, 43, 0.06)"
-                  cursor={onSelectPeriod ? 'pointer' : 'default'}
-                  _hover={
-                    onSelectPeriod
-                      ? {
-                          borderColor: 'brand.300',
-                          bg: 'rgba(22, 33, 43, 0.03)',
-                        }
-                      : undefined
-                  }
-                  onClick={() => onSelectPeriod?.(period)}
-                >
-                  <Box>
-                    <HStack spacing={2}>
-                      <Text fontWeight="semibold">{period.label}</Text>
-                      {period.key === currentPeriod.key ? (
-                        <Text
-                          fontSize="xs"
-                          fontWeight="semibold"
-                          textTransform="uppercase"
-                          letterSpacing="0.08em"
-                          color="brand.600"
-                        >
-                          Current
+          <Box mt={6}>
+            <Flex justify="space-between" align="baseline" mb={3}>
+              <Heading
+                size="xs"
+                color={tokens.textMuted}
+                textTransform="uppercase"
+                letterSpacing="0.08em"
+                fontSize="11px"
+              >
+                Pay period history
+              </Heading>
+              <Text color={tokens.textSubtle} fontSize="xs" data-numeric>
+                {orderedPeriods.length} periods
+              </Text>
+            </Flex>
+
+            <Box display="grid" gap="1px" bg={tokens.border} borderRadius={RADII.md} overflow="hidden">
+              {visiblePeriods.map((period) => {
+                const isCurrent = period.key === currentPeriod.key;
+                return (
+                  <Flex
+                    key={period.key}
+                    justify="space-between"
+                    align={{ base: 'flex-start', sm: 'center' }}
+                    direction={{ base: 'column', sm: 'row' }}
+                    gap={2}
+                    px={4}
+                    py={3}
+                    bg={isCurrent ? tokens.surfaceRaised : tokens.surfaceSunken}
+                    cursor={onSelectPeriod ? 'pointer' : 'default'}
+                    transition="background-color 120ms ease"
+                    _hover={onSelectPeriod ? { bg: tokens.surfaceRaised } : undefined}
+                    onClick={() => onSelectPeriod?.(period)}
+                  >
+                    <Box minW={0}>
+                      <HStack spacing={2}>
+                        <Text fontWeight={600} fontSize="sm" color={tokens.text} data-numeric>
+                          {period.label}
                         </Text>
-                      ) : null}
+                        {isCurrent ? (
+                          <Box
+                            as="span"
+                            fontSize="10px"
+                            fontWeight={600}
+                            textTransform="uppercase"
+                            letterSpacing="0.06em"
+                            color={ACCENTS.primary}
+                            bg={ACCENTS.primaryMuted}
+                            borderRadius={RADII.sm}
+                            px={1.5}
+                            py={0.5}
+                          >
+                            Current
+                          </Box>
+                        ) : null}
+                      </HStack>
+                      <Text color={tokens.textSubtle} fontSize="xs" mt={0.5} data-numeric>
+                        {period.shifts} {period.shifts === 1 ? 'shift' : 'shifts'} •{' '}
+                        {formatCurrency(period.sales)} sales
+                      </Text>
+                    </Box>
+                    <HStack spacing={5} flexShrink={0}>
+                      <Text fontSize="sm" fontWeight={600} color={tokens.text} data-numeric>
+                        {formatCurrency(period.netTips)}
+                      </Text>
+                      <Text
+                        fontSize="xs"
+                        color={tokens.textSubtle}
+                        minW="72px"
+                        textAlign="right"
+                        data-numeric
+                      >
+                        −{formatCurrency(period.tipOut)}
+                      </Text>
                     </HStack>
-                    <Text color="gray.400" fontSize="sm">
-                      {period.shifts} {period.shifts === 1 ? 'shift' : 'shifts'} • Sales $
-                      {period.sales.toFixed(2)}
-                    </Text>
-                  </Box>
-                  <HStack spacing={4}>
-                    <Text color="brand.700" fontSize="sm" fontWeight="semibold">
-                      Net ${period.netTips.toFixed(2)}
-                    </Text>
-                    <Text color="red.200" fontSize="sm">
-                      Tip-out ${period.tipOut.toFixed(2)}
-                    </Text>
-                  </HStack>
-                </Flex>
-              ))}
+                  </Flex>
+                );
+              })}
+            </Box>
+
+            {orderedPeriods.length > HISTORY_PAGE_SIZE ? (
+              <Button
+                mt={3}
+                size="sm"
+                variant="ghost"
+                width="100%"
+                color={tokens.textMuted}
+                fontWeight={500}
+                onClick={() => setShowAllHistory((previous) => !previous)}
+              >
+                {showAllHistory
+                  ? 'Show less'
+                  : `Show all ${orderedPeriods.length} periods`}
+              </Button>
+            ) : null}
           </Box>
         </Box>
       ) : null}

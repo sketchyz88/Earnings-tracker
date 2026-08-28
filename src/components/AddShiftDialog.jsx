@@ -28,6 +28,7 @@ import {
   VStack,
 } from '@chakra-ui/react';
 import { Camera } from 'lucide-react';
+import { formatCurrency } from '../utils/format';
 import { getPeriodEnd, getPeriodStart } from './BiWeeklyHours';
 import { parseReceiptText } from '../utils/receiptParser';
 
@@ -66,10 +67,6 @@ function createEmptyForm(defaultJobId = '') {
     floor: '',
     notes: '',
   };
-}
-
-function formatCurrency(value) {
-  return `$${value.toFixed(2)}`;
 }
 
 function formatPayPeriodLabel(periodStart, settings) {

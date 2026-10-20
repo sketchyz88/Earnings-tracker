@@ -32,6 +32,7 @@ import { formatCurrency } from '../utils/format';
 import { getPeriodEnd, getPeriodStart } from './BiWeeklyHours';
 import { parseReceiptText } from '../utils/receiptParser';
 import { palette } from '../theme/tokens';
+import TablesEditor, { rowsForSave, rowsFromShift } from './TablesEditor';
 
 const FLOORS = ['Floor 1', 'Floor 2'];
 
@@ -75,6 +76,7 @@ function createEmptyForm(defaultJobId = '') {
     earnings: '',
     floor: '',
     notes: '',
+    tables: [],
   };
 }
 
@@ -280,6 +282,7 @@ function AddShiftDialog({
         earnings: String(editingShift.earnings ?? ''),
         floor: editingShift.floor || '',
         notes: editingShift.notes || '',
+        tables: rowsFromShift(editingShift),
       });
       return;
     }
@@ -535,6 +538,7 @@ function AddShiftDialog({
       earnings: Number(form.earnings) || 0,
       floor: form.floor,
       notes: form.notes.trim(),
+      tables: rowsForSave(form.tables || []),
     });
   }
 
@@ -858,6 +862,22 @@ function AddShiftDialog({
             </FormControl>
 
             <FormControl>
+              <FormLabel>Tables</FormLabel>
+              <TablesEditor
+                isDarkMode={isDarkMode}
+                rows={form.tables || []}
+                onChange={(nextRows) => setForm((current) => ({ ...current, tables: nextRows }))}
+                onUseTotals={({ tips, sales }) =>
+                  setForm((current) => ({
+                    ...current,
+                    tips: tips ? tips.toFixed(2) : current.tips,
+                    sales: sales ? sales.toFixed(2) : current.sales,
+                  }))
+                }
+              />
+            </FormControl>
+
+            <FormControl>
               <FormLabel>Notes</FormLabel>
               <Textarea
                 rows={3}
@@ -874,7 +894,9 @@ function AddShiftDialog({
             Cancel
           </Button>
           <Button
-            colorScheme="teal"
+            bg="brand.500"
+            color="white"
+            _hover={{ bg: 'brand.600' }}
             onClick={handleSave}
             isDisabled={!form.jobId || !form.date || !form.hours || !form.tips}
           >

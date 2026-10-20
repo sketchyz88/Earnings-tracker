@@ -44,6 +44,7 @@ create table if not exists public.shifts (
   tips numeric not null default 0,
   earnings numeric not null default 0,
   job_id text,
+  tables jsonb not null default '[]'::jsonb,
   floor text,
   notes text not null default '',
   created_at timestamptz not null default timezone('utc', now()),
@@ -52,6 +53,10 @@ create table if not exists public.shifts (
 
 alter table public.shifts
   add column if not exists job_id text;
+
+-- Tables served on a shift: [{ id, table, sales, tip }].
+alter table public.shifts
+  add column if not exists tables jsonb not null default '[]'::jsonb;
 
 create index if not exists shifts_user_id_shift_date_idx
   on public.shifts (user_id, shift_date desc, created_at desc);

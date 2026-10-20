@@ -90,3 +90,63 @@ export function toDate(dateString) {
 }
 
 export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * Tables served on a shift: [{ id, table, sales, tip }].
+ * Table "names" are free text ("12", "B4", "Bar 3"); they're compared
+ * case-insensitively with whitespace trimmed so "b4" and "B4 " are one table.
+ */
+export function normalizeTableName(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+}
+
+export function getTables(shift) {
+  if (!Array.isArray(shift?.tables)) {
+    return [];
+  }
+  return shift.tables
+    .map((entry) => ({
+      id: entry?.id || '',
+      table: normalizeTableName(entry?.table),
+      sales: Number(entry?.sales) || 0,
+      tip: Number(entry?.tip) || 0,
+    }))
+    .filter((entry) => entry.table);
+}
+
+/** Per-table totals across many shifts, best average tip first. */
+export function summarizeTables(shifts) {
+  const map = new Map();
+  (shifts || []).forEach((shift) => {
+    getTables(shift).forEach((entry) => {
+      const current = map.get(entry.table) || {
+        table: entry.table,
+        checks: 0,
+        tips: 0,
+        sales: 0,
+        bestTip: 0,
+        lastDate: '',
+      };
+      current.checks += 1;
+      current.tips += entry.tip;
+      current.sales += entry.sales;
+      current.bestTip = Math.max(current.bestTip, entry.tip);
+      if (shift.date && shift.date > current.lastDate) {
+        current.lastDate = shift.date;
+      }
+      map.set(entry.table, current);
+    });
+  });
+
+  return Array.from(map.values())
+    .map((row) => ({
+      ...row,
+      avgTip: row.checks ? row.tips / row.checks : 0,
+      avgCheck: row.checks ? row.sales / row.checks : 0,
+      tipPercent: row.sales > 0 ? (row.tips / row.sales) * 100 : 0,
+    }))
+    .sort((left, right) => right.avgTip - left.avgTip || right.checks - left.checks);
+}

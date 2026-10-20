@@ -23,14 +23,23 @@ import {
   extendTheme,
 } from '@chakra-ui/react';
 import {
+  BarChart3,
+  CalendarDays,
+  CalendarRange,
   Download,
+  Info,
+  LayoutDashboard,
+  List,
   LogOut,
   Moon,
+  MoreHorizontal,
+  Percent,
   Plus,
   Settings,
   Sun,
   Target,
   TrendingUp,
+  UserPlus,
   Wallet,
 } from 'lucide-react';
 import AddShiftDialog from './components/AddShiftDialog';
@@ -50,12 +59,12 @@ import CalendarView from './components/CalendarView';
 import FloorComparison from './components/FloorComparison';
 import SettingsDialog from './components/SettingsDialog';
 import ShiftsByDay from './components/ShiftsByDay';
+import { Segmented } from './components/ui';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import {
   formatCompactCurrency,
   formatCurrency,
   formatHours,
-  formatMultiplier,
   formatSignedCurrency,
   formatSignedPercent,
 } from './utils/format';
@@ -874,29 +883,6 @@ function SummaryCard({ icon: Icon, isDarkMode, label, value, helper, accent }) {
   );
 }
 
-function InsightCard({ isDarkMode, label, title, helper, accent }) {
-  const tokens = palette(isDarkMode);
-  return (
-    <CardShell isDarkMode={isDarkMode} accent={accent} p={5} height="100%">
-      <CardLabel isDarkMode={isDarkMode}>{label}</CardLabel>
-      <Text
-        mt={2}
-        color={tokens.text}
-        fontSize="19px"
-        fontWeight={650}
-        lineHeight="1.25"
-        letterSpacing="-0.02em"
-        data-numeric
-      >
-        {title}
-      </Text>
-      <Text mt={2} color={tokens.textMuted} fontSize="13px" lineHeight="1.55" data-numeric>
-        {helper}
-      </Text>
-    </CardShell>
-  );
-}
-
 async function fetchCloudData(user) {
   const [{ data: settingsRow, error: settingsError }, { data: shiftRows, error: shiftsError }] =
     await Promise.all([
@@ -980,6 +966,28 @@ function App() {
   useEffect(() => {
     saveProfileStore(profileStore);
   }, [profileStore]);
+
+  // "N" anywhere (outside a text field or dialog) opens a new shift.
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key.toLowerCase() !== 'n' || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      const target = event.target;
+      if (
+        target?.isContentEditable ||
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) ||
+        document.querySelector('[role="dialog"]')
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setEditingShift(null);
+      setIsAddOpen(true);
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     saveActiveProfileId(activeProfileId);
@@ -1253,7 +1261,8 @@ function App() {
   const dashboardInsights = useMemo(() => {
     const effectiveHourly =
       payPeriodStats.hours > 0 ? payPeriodStats.totalTakeHome / payPeriodStats.hours : 0;
-    const netTipRate = payPeriodStats.tipOut > 0 ? payPeriodStats.netTips / payPeriodStats.tipOut : 0;
+    // Gross tips as a share of sales: how well your tables tipped this period.
+    const tipPercent = payPeriodStats.sales > 0 ? (payPeriodStats.tips / payPeriodStats.sales) * 100 : 0;
     const bestShift = sortedShifts.reduce((best, shift) => {
       const shiftTakeHome = getNetTips(shift, settings) + getBasePay(shift, settings.hourlyRate);
       if (!best || shiftTakeHome > best.takeHome) {
@@ -1268,7 +1277,7 @@ function App() {
 
     return {
       effectiveHourly,
-      netTipRate,
+      tipPercent,
       bestShift,
     };
   }, [payPeriodStats, settings, sortedShifts]);
@@ -1860,7 +1869,12 @@ function App() {
     setSelectedDate(dateString);
     setHistoryFilterType('all');
     setHistoryFilterValue('');
-    setView('byDay');
+    changeView('shifts');
+  }
+
+  function changeView(nextView) {
+    setView(nextView);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function handleHistoryFilterTypeChange(nextType) {
@@ -1884,7 +1898,7 @@ function App() {
     setSelectedDate('');
     setHistoryFilterType('payPeriod');
     setHistoryFilterValue(period.key);
-    setView('byDay');
+    changeView('shifts');
   }
 
   function handleChangeProfile(nextProfileId) {
@@ -2029,21 +2043,107 @@ function App() {
   }
 
   const navItems = [
-    ['about', 'About'],
-    ['dashboard', 'Dashboard'],
-    ['byDay', 'By Day'],
-    ['biWeekly', 'Bi-Weekly'],
-    ['floor', 'Floor'],
-    ['calendar', 'Calendar'],
+    { value: 'dashboard', label: 'Dashboard', short: 'Home', icon: LayoutDashboard },
+    { value: 'shifts', label: 'Shifts', short: 'Shifts', icon: List },
+    { value: 'payPeriods', label: 'Pay periods', short: 'Periods', icon: CalendarRange },
+    { value: 'insights', label: 'Insights', short: 'Insights', icon: BarChart3 },
+    { value: 'calendar', label: 'Calendar', short: 'Calendar', icon: CalendarDays },
   ];
+
+  const menuItemProps = {
+    bg: 'transparent',
+    color: themeTokens.textMuted,
+    fontSize: '13px',
+    _hover: { bg: themeTokens.surfaceSunken, color: themeTokens.text },
+  };
+
+  const noticeProps = {
+    mb: 4,
+    borderRadius: RADII.lg,
+    fontSize: 'sm',
+    border: '1px solid',
+  };
+
+  const historyFilters = (
+    <Box display="grid" gap={2}>
+      <Segmented
+        isDarkMode={isDarkMode}
+        value={selectedDate ? 'date' : historyFilterType}
+        onChange={(nextType) => handleHistoryFilterTypeChange(nextType)}
+        options={[
+          { value: 'all', label: 'All' },
+          { value: 'days', label: 'Recent' },
+          { value: 'week', label: 'Week' },
+          { value: 'month', label: 'Month' },
+          { value: 'payPeriod', label: 'Period' },
+        ]}
+      />
+      {historyFilterType !== 'all' || selectedDate ? (
+        <HStack spacing={2} flexWrap="wrap" rowGap={2}>
+          {historyFilterType === 'days' && !selectedDate ? (
+            <>
+              <Select
+                size="sm"
+                value={historyFilterValue}
+                onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
+                maxW="180px"
+                aria-label="How many days"
+              >
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="60">Last 60 days</option>
+                <option value="custom">Custom…</option>
+              </Select>
+              {historyFilterValue === 'custom' ? (
+                <Input
+                  size="sm"
+                  type="number"
+                  min={1}
+                  value={historyCustomDays}
+                  onChange={(event) => setHistoryCustomDays(event.target.value)}
+                  maxW="110px"
+                  placeholder="Days"
+                  aria-label="Number of days"
+                />
+              ) : null}
+            </>
+          ) : null}
+          {['month', 'week', 'payPeriod'].includes(historyFilterType) && !selectedDate ? (
+            <Select
+              size="sm"
+              placeholder={`Choose ${historyFilterType === 'payPeriod' ? 'pay period' : historyFilterType}`}
+              value={historyFilterValue}
+              onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
+              maxW="240px"
+            >
+              {(historyFilterType === 'month'
+                ? monthOptions
+                : historyFilterType === 'week'
+                  ? weekOptions
+                  : payPeriodOptions
+              ).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+          <Button size="sm" variant="ghost" color={themeTokens.textMuted} onClick={clearHistoryFilters}>
+            Clear filter
+          </Button>
+        </HStack>
+      ) : null}
+    </Box>
+  );
 
   let content;
 
   if (!isAuthReady) {
     content = (
       <Flex minH="100vh" align="center" justify="center" direction="column" gap={4}>
-        <Spinner size="xl" color="teal.300" thickness="4px" />
-        <Text color="gray.400">Checking your account session...</Text>
+        <Spinner size="lg" color={ACCENTS.primary} thickness="3px" />
+        <Text color={themeTokens.textMuted}>Checking your account…</Text>
       </Flex>
     );
   } else if (isSupabaseConfigured && !session?.user) {
@@ -2059,32 +2159,21 @@ function App() {
     );
   } else {
     content = (
-      <Box minH="100vh" bg="transparent">
+      <Box minH="100vh" bg="transparent" pb={{ base: '96px', md: 10 }}>
         <Box
           as="header"
           position="sticky"
           top={0}
           zIndex={20}
-          bg={isDarkMode ? 'rgba(11, 18, 32, 0.72)' : 'rgba(246, 248, 252, 0.72)'}
+          bg={isDarkMode ? 'rgba(11, 18, 32, 0.78)' : 'rgba(246, 248, 252, 0.8)'}
           backdropFilter="blur(20px) saturate(180%)"
           borderBottom="1px solid"
           borderColor={themeTokens.border}
           px={{ base: 4, md: 6 }}
-          py={3}
+          py={{ base: 2.5, md: 3 }}
         >
-          <Flex
-            maxW="1280px"
-            mx="auto"
-            align="center"
-            justify="space-between"
-            gap={3}
-            rowGap={3}
-            wrap={{ base: 'wrap', md: 'nowrap' }}
-          >
-            {/* Brand: a compact mark plus a single line of identity. The old
-                header stacked a wordmark, an H1, and a marketing tagline — that
-                copy lives in the About tab, not in the chrome of a signed-in app. */}
-            <HStack spacing={3} minW={0}>
+          <Flex maxW="1280px" mx="auto" align="center" justify="space-between" gap={3}>
+            <HStack spacing={3} minW={0} flexShrink={1}>
               <Flex
                 boxSize="34px"
                 flexShrink={0}
@@ -2109,71 +2198,44 @@ function App() {
                   lineHeight="1.2"
                   noOfLines={1}
                 >
-                  Earnings Tracker
+                  tips.cafe
                 </Text>
-                <HStack spacing={1.5} mt="1px">
-                  <Text fontSize="11px" color={themeTokens.textSubtle} noOfLines={1}>
-                    {selectedJob ? selectedJob.name : 'All jobs'}
-                  </Text>
-                  <Box boxSize="3px" borderRadius="full" bg={themeTokens.textSubtle} opacity={0.6} />
-                  <Text fontSize="11px" color={themeTokens.textSubtle} noOfLines={1}>
-                    {isCloudMode ? 'Synced' : 'Local device'}
-                  </Text>
-                </HStack>
+                <Text fontSize="11px" color={themeTokens.textSubtle} noOfLines={1}>
+                  {profileName} · {isCloudMode ? 'Synced' : 'This device'}
+                </Text>
               </Box>
             </HStack>
 
-            <HStack
-              spacing={2}
-              flexWrap="wrap"
-              rowGap={2}
-              justify="flex-end"
-              flex={{ base: '1 1 100%', sm: '0 1 auto' }}
-            >
-              {!isCloudMode ? (
-                <>
-                  <Select
-                    value={activeProfileId}
-                    onChange={(event) => handleChangeProfile(event.target.value)}
-                    size="sm"
-                    maxW="160px"
-                    display={{ base: 'none', lg: 'block' }}
-                  >
-                    {(profileStore.profiles || []).map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    color={themeTokens.textMuted}
-                    display={{ base: 'none', lg: 'inline-flex' }}
-                    onClick={handleCreateProfile}
-                  >
-                    New profile
-                  </Button>
-                </>
+            {/* Desktop tabs live in the header; phones get a bottom bar. */}
+            <Segmented
+              isDarkMode={isDarkMode}
+              display={{ base: 'none', lg: 'flex' }}
+              options={navItems.map((item) => ({ value: item.value, label: item.label }))}
+              value={view}
+              onChange={changeView}
+              data-nav-group
+            />
+
+            <HStack spacing={1.5} flexShrink={0}>
+              {jobs.length > 1 ? (
+                <Select
+                  value={selectedJobId}
+                  onChange={(event) => setSelectedJobId(event.target.value)}
+                  size="sm"
+                  maxW={{ base: '118px', md: '160px' }}
+                  aria-label="Filter by job"
+                >
+                  <option value={ALL_JOBS_VALUE}>All jobs</option>
+                  {jobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.name}
+                    </option>
+                  ))}
+                </Select>
               ) : null}
 
-              <Select
-                value={selectedJobId}
-                onChange={(event) => setSelectedJobId(event.target.value)}
-                size="sm"
-                maxW={{ base: '130px', md: '170px' }}
-                aria-label="Filter by job"
-              >
-                <option value={ALL_JOBS_VALUE}>All jobs</option>
-                {jobs.map((job) => (
-                  <option key={job.id} value={job.id}>
-                    {job.name}
-                  </option>
-                ))}
-              </Select>
-
               <IconButton
-                icon={isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+                icon={isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
                 variant="ghost"
                 size="sm"
                 color={themeTokens.textMuted}
@@ -2181,44 +2243,23 @@ function App() {
                 onClick={() => setUiMode((current) => (current === 'dark' ? 'light' : 'dark'))}
               />
               <IconButton
-                icon={<Settings size={15} />}
+                icon={<Settings size={16} />}
                 variant="ghost"
                 size="sm"
                 color={themeTokens.textMuted}
                 aria-label="Open settings"
                 onClick={() => setIsSettingsOpen(true)}
               />
-              <IconButton
-                icon={<Download size={15} />}
-                variant="ghost"
-                size="sm"
-                color={themeTokens.textMuted}
-                aria-label="Export CSV"
-                onClick={handleExportCsv}
-              />
 
-              <Button
-                leftIcon={<Plus size={15} />}
-                size="sm"
-                bg={ACCENTS.primary}
-                color="white"
-                _hover={{ bg: '#2f6fd0' }}
-                onClick={openNewShiftDialog}
-              >
-                Add shift
-              </Button>
-
-              {/* The signed-in address used to sit in the bar as a full-width
-                  all-caps pill. It moves into an avatar menu, where an email
-                  belongs. */}
-              {isCloudMode ? (
-                <Menu placement="bottom-end">
-                  <MenuButton
-                    as={IconButton}
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Account menu"
-                    icon={
+              <Menu placement="bottom-end">
+                <MenuButton
+                  as={IconButton}
+                  variant="ghost"
+                  size="sm"
+                  aria-label="More options"
+                  color={themeTokens.textMuted}
+                  icon={
+                    isCloudMode ? (
                       <Flex
                         boxSize="26px"
                         align="center"
@@ -2233,127 +2274,119 @@ function App() {
                       >
                         {(session.user.email || '?').slice(0, 2).toUpperCase()}
                       </Flex>
-                    }
-                  />
-                  <MenuList
-                    bg={themeTokens.surfaceRaised}
-                    borderColor={themeTokens.border}
-                    borderRadius={RADII.md}
-                    boxShadow={themeTokens.shadowRaised}
-                    py={1}
-                    minW="230px"
-                  >
-                    <Box px={3} py={2}>
-                      <Text fontSize="11px" color={themeTokens.textSubtle}>
-                        Signed in as
-                      </Text>
-                      <Text fontSize="13px" color={themeTokens.text} fontWeight={500} noOfLines={1}>
-                        {session.user.email}
-                      </Text>
-                    </Box>
-                    <Box height="1px" bg={themeTokens.border} my={1} />
-                    <MenuItem
-                      icon={<LogOut size={14} />}
-                      bg="transparent"
-                      color={themeTokens.textMuted}
-                      fontSize="13px"
-                      _hover={{ bg: themeTokens.surfaceSunken, color: themeTokens.text }}
-                      onClick={handleSignOut}
-                    >
+                    ) : (
+                      <MoreHorizontal size={16} />
+                    )
+                  }
+                />
+                <MenuList
+                  bg={themeTokens.surfaceRaised}
+                  borderColor={themeTokens.border}
+                  borderRadius={RADII.md}
+                  boxShadow={themeTokens.shadowRaised}
+                  py={1}
+                  minW="230px"
+                  zIndex={30}
+                >
+                  {isCloudMode ? (
+                    <>
+                      <Box px={3} py={2}>
+                        <Text fontSize="11px" color={themeTokens.textSubtle}>
+                          Signed in as
+                        </Text>
+                        <Text fontSize="13px" color={themeTokens.text} fontWeight={500} noOfLines={1}>
+                          {session.user.email}
+                        </Text>
+                      </Box>
+                      <Box height="1px" bg={themeTokens.border} my={1} />
+                    </>
+                  ) : (
+                    <>
+                      <Box px={3} pt={2} pb={1}>
+                        <Text fontSize="11px" color={themeTokens.textSubtle} mb={1.5}>
+                          Profile on this device
+                        </Text>
+                        <Select
+                          size="sm"
+                          value={activeProfileId}
+                          onChange={(event) => handleChangeProfile(event.target.value)}
+                          aria-label="Switch profile"
+                        >
+                          {(profileStore.profiles || []).map((profile) => (
+                            <option key={profile.id} value={profile.id}>
+                              {profile.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </Box>
+                      <MenuItem icon={<UserPlus size={14} />} {...menuItemProps} onClick={handleCreateProfile}>
+                        New profile
+                      </MenuItem>
+                      <Box height="1px" bg={themeTokens.border} my={1} />
+                    </>
+                  )}
+                  <MenuItem icon={<Download size={14} />} {...menuItemProps} onClick={handleExportCsv}>
+                    Export shifts (CSV)
+                  </MenuItem>
+                  <MenuItem icon={<Info size={14} />} {...menuItemProps} onClick={() => changeView('about')}>
+                    About tips.cafe
+                  </MenuItem>
+                  {isCloudMode ? (
+                    <MenuItem icon={<LogOut size={14} />} {...menuItemProps} onClick={handleSignOut}>
                       Sign out
                     </MenuItem>
-                  </MenuList>
-                </Menu>
-              ) : null}
+                  ) : null}
+                </MenuList>
+              </Menu>
+
+              <Button
+                leftIcon={<Plus size={15} />}
+                size="sm"
+                bg={ACCENTS.primary}
+                color="white"
+                _hover={{ bg: '#2f6fd0' }}
+                onClick={openNewShiftDialog}
+                display={{ base: 'none', md: 'inline-flex' }}
+                title="Add shift (N)"
+              >
+                Add shift
+              </Button>
             </HStack>
           </Flex>
         </Box>
 
-        <Box
-          bg="transparent"
-          px={{ base: 4, md: 6 }}
-          py={4}
-        >
-          <Flex
-            maxW="1280px"
-            mx="auto"
-            gap={2}
-            wrap="wrap"
-            p="6px"
-            bg={isDarkMode ? 'rgba(15, 23, 42, 0.82)' : 'rgba(255,255,255,0.78)'}
-            border={`1px solid ${isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}`}
-            borderRadius="full"
-            width="fit-content"
-            boxShadow="0 10px 24px rgba(34, 46, 56, 0.06)"
-          >
-            {navItems.map(([mode, label]) => {
-              const isActive = view === mode;
-              return (
-                <Button
-                  key={mode}
-                  size="sm"
-                  borderRadius="full"
-                  bg={isActive ? 'brand.600' : 'transparent'}
-                  color={isActive ? 'white' : isDarkMode ? 'gray.200' : 'gray.800'}
-                  _hover={{
-                    bg: isActive ? 'brand.700' : 'blackAlpha.50',
-                    color: isActive ? 'white' : isDarkMode ? 'white' : 'gray.900',
-                  }}
-                  onClick={() => setView(mode)}
-                >
-                  {label}
-                </Button>
-              );
-            })}
-          </Flex>
-        </Box>
-
-        <Box px={{ base: 4, md: 6 }} py={{ base: 5, md: 6 }}>
+        <Box px={{ base: 4, md: 6 }} py={{ base: 4, md: 6 }}>
           <Box maxW="1280px" mx="auto">
-            {!isSupabaseConfigured ? (
-              <Alert
-                status="info"
-                mb={4}
-                borderRadius={RADII.lg}
-                bg={themeTokens.surface}
-                color={themeTokens.textMuted}
-                fontSize="sm"
-                border="1px solid"
-                borderColor={themeTokens.border}
-              >
-                <AlertIcon />
-                <AlertDescription>
-                  Password login and cross-device sync are now wired in the code. Add your
-                  Supabase URL and anon key in Vercel to turn cloud accounts on.
-                </AlertDescription>
-              </Alert>
-            ) : null}
+            {/* Tablet: tabs under the header (desktop has them inline, phones at the bottom). */}
+            <Segmented
+              isDarkMode={isDarkMode}
+              display={{ base: 'none', md: 'flex', lg: 'none' }}
+              mb={5}
+              options={navItems.map((item) => ({ value: item.value, label: item.label }))}
+              value={view}
+              onChange={changeView}
+            />
 
             {isCloudLoading ? (
               <Flex
-                mb={4}
-                p={5}
-                bg="rgba(255, 255, 255, 0.9)"
-                borderRadius="3xl"
-                border="1px solid"
-                borderColor="rgba(22, 33, 43, 0.06)"
+                {...noticeProps}
+                p={4}
+                bg={themeTokens.surface}
+                borderColor={themeTokens.border}
                 align="center"
                 gap={3}
               >
-                <Spinner size="sm" color="teal.300" />
-                <Text color="gray.300">Loading your synced shifts...</Text>
+                <Spinner size="sm" color={ACCENTS.primary} />
+                <Text color={themeTokens.textMuted}>Loading your synced shifts…</Text>
               </Flex>
             ) : null}
 
             {cloudError ? (
               <Alert
                 status="error"
-                mb={4}
-                borderRadius={RADII.lg}
-                fontSize="sm"
+                {...noticeProps}
                 bg={isDarkMode ? 'rgba(136, 19, 55, 0.35)' : 'rgba(254, 226, 226, 0.9)'}
                 color={isDarkMode ? '#fecdd3' : '#9f1239'}
-                border="1px solid"
                 borderColor={isDarkMode ? 'rgba(251, 113, 133, 0.25)' : 'rgba(159, 18, 57, 0.15)'}
               >
                 <AlertIcon />
@@ -2362,68 +2395,66 @@ function App() {
             ) : null}
 
             {lastDeletedShift ? (
-              <Alert
-                status="warning"
-                mb={4}
-                borderRadius="3xl"
-                bg={isDarkMode ? 'rgba(133, 77, 14, 0.22)' : 'rgba(245, 158, 11, 0.12)'}
-                border="1px solid rgba(245, 158, 11, 0.22)"
+              <Flex
+                {...noticeProps}
+                p={3}
+                pl={4}
+                bg={themeTokens.surfaceRaised}
+                borderColor={themeTokens.borderStrong}
+                boxShadow={themeTokens.shadowRaised}
+                align="center"
+                justify="space-between"
+                gap={3}
+                position={{ base: 'fixed', md: 'static' }}
+                bottom={{ base: '84px', md: 'auto' }}
+                left={{ base: 4, md: 'auto' }}
+                right={{ base: 4, md: 'auto' }}
+                zIndex={25}
               >
-                <AlertIcon />
-                <Flex
-                  w="full"
-                  align={{ base: 'flex-start', md: 'center' }}
-                  justify="space-between"
-                  direction={{ base: 'column', md: 'row' }}
-                  gap={3}
-                >
-                  <AlertDescription>
-                    Deleted shift from {lastDeletedShift.date}. Undo if that was accidental.
-                  </AlertDescription>
-                  <Button size="sm" bg="brand.600" color="white" _hover={{ bg: 'brand.700' }} onClick={handleUndoDeleteShift}>
-                    Undo Delete
-                  </Button>
-                </Flex>
-              </Alert>
+                <Text color={themeTokens.text} fontSize="sm">
+                  Shift from {formatDateLabel(lastDeletedShift.date)} deleted.
+                </Text>
+                <Button size="sm" variant="ghost" color={ACCENTS.primary} onClick={handleUndoDeleteShift}>
+                  Undo
+                </Button>
+              </Flex>
             ) : null}
 
             {canImportLocalData ? (
-              <Box
-                mb={4}
+              <Flex
+                {...noticeProps}
                 p={5}
-                bg="rgba(255, 255, 255, 0.9)"
-                borderRadius="3xl"
-                border="1px solid"
-                borderColor="rgba(22, 33, 43, 0.06)"
+                bg={themeTokens.surface}
+                borderColor={themeTokens.border}
+                align={{ base: 'flex-start', md: 'center' }}
+                justify="space-between"
+                direction={{ base: 'column', md: 'row' }}
+                gap={4}
               >
-                <Flex
-                  align={{ base: 'flex-start', md: 'center' }}
-                  justify="space-between"
-                  direction={{ base: 'column', md: 'row' }}
-                  gap={4}
+                <Box>
+                  <Text fontWeight={600} color={themeTokens.text}>
+                    Bring over the data from this device
+                  </Text>
+                  <Text mt={1} color={themeTokens.textMuted} fontSize="sm">
+                    Found local shifts and settings for {localDataset.profileName}. Import them once so
+                    this account starts with your existing history.
+                  </Text>
+                </Box>
+                <Button
+                  bg={ACCENTS.primary}
+                  color="white"
+                  _hover={{ bg: '#2f6fd0' }}
+                  onClick={handleImportLocalData}
+                  isLoading={isImportingLocalData}
+                  flexShrink={0}
                 >
-                  <Box>
-                    <Text fontWeight="semibold">Bring over the data from this device</Text>
-                    <Text mt={1} color="gray.400" fontSize="sm">
-                      I found local shifts and settings for {localDataset.profileName}. Import them
-                      once so this account starts with your existing history.
-                    </Text>
-                  </Box>
-                  <Button
-                    bg="brand.600"
-                    color="white"
-                    _hover={{ bg: 'brand.700' }}
-                    onClick={handleImportLocalData}
-                    isLoading={isImportingLocalData}
-                  >
-                    Import My Local Data
-                  </Button>
-                </Flex>
-              </Box>
+                  Import my local data
+                </Button>
+              </Flex>
             ) : null}
 
-            <Box display="grid" gap={4} mb={5}>
-              <Box>
+            {view === 'dashboard' ? (
+              <Box display="grid" gap={4}>
                 {topSummary.shifts === 0 ? (
                   <EmptyPeriodCard
                     isDarkMode={isDarkMode}
@@ -2432,241 +2463,145 @@ function App() {
                     onAddShift={openNewShiftDialog}
                   />
                 ) : (
-                <SnapshotCard
-                  isDarkMode={isDarkMode}
-                  label={topSummary.modeLabel}
-                  title={topSummary.title}
-                  value={formatCurrency(topSummary.takeHome)}
-                  detail={`${topSummary.shifts} ${
-                    topSummary.shifts === 1 ? 'shift' : 'shifts'
-                  } in this snapshot • ${formatSignedCurrency(
-                    payPeriodComparison.takeHomeDelta
-                  )} vs last period`}
-                  helper={topSummary.helper}
-                  accent={ACCENTS.primary}
-                  metrics={[
-                    {
-                      label: 'Hours worked',
-                      value: topSummary.hours.toFixed(1),
-                      helper: 'Total hours in this pay period',
-                    },
-                    {
-                      label: 'Effective hourly',
-                      value: formatCurrency(dashboardInsights.effectiveHourly),
-                      helper: 'Take-home divided by hours worked',
-                    },
-                    {
-                      label: 'Sales',
-                      value: formatCurrency(topSummary.sales),
-                      helper: `${formatSignedCurrency(payPeriodComparison.salesDelta)} vs last period`,
-                    },
-                    {
-                      label: 'Avg per shift',
-                      value: formatCurrency(
-                        topSummary.shifts > 0 ? topSummary.takeHome / topSummary.shifts : 0
-                      ),
-                      helper: 'Average take-home from the shifts in view',
-                    },
-                  ]}
-                />
+                  <SnapshotCard
+                    isDarkMode={isDarkMode}
+                    label={topSummary.modeLabel}
+                    title={topSummary.title}
+                    value={formatCurrency(topSummary.takeHome)}
+                    detail={`${topSummary.shifts} ${
+                      topSummary.shifts === 1 ? 'shift' : 'shifts'
+                    } so far · ${formatSignedCurrency(payPeriodComparison.takeHomeDelta)} vs last period`}
+                    helper={topSummary.helper}
+                    accent={ACCENTS.primary}
+                    metrics={[
+                      {
+                        label: 'Hours worked',
+                        value: formatHours(topSummary.hours),
+                        helper: `Goal ${formatHours(settings.hoursGoal)} hrs`,
+                      },
+                      {
+                        label: 'Per hour',
+                        value: formatCurrency(dashboardInsights.effectiveHourly),
+                        helper: 'Take-home ÷ hours',
+                      },
+                      {
+                        label: 'Sales',
+                        value: formatCurrency(topSummary.sales),
+                        helper: `${formatSignedCurrency(payPeriodComparison.salesDelta)} vs last period`,
+                      },
+                      {
+                        label: 'Per shift',
+                        value: formatCurrency(
+                          topSummary.shifts > 0 ? topSummary.takeHome / topSummary.shifts : 0
+                        ),
+                        helper: 'Average take-home',
+                      },
+                    ]}
+                  />
                 )}
-              </Box>
-              <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap={4} alignItems="start">
-                {topSummary.shifts > 0 ? (
-                <>
-                <SummaryCard
-                  icon={TrendingUp}
-                  isDarkMode={isDarkMode}
-                  label={payPeriodComparison.label}
-                  value={formatSignedCurrency(payPeriodComparison.takeHomeDelta)}
-                  helper={`${formatSignedPercent(
-                    payPeriodComparison.takeHomeDeltaPercent
-                  )} take-home change from ${formatCurrency(
-                    payPeriodComparison.previousTakeHome
-                  )}.`}
-                  accent={ACCENTS.positive}
-                />
-                <SummaryCard
-                  icon={Target}
-                  isDarkMode={isDarkMode}
-                  label="Projected finish"
-                  value={formatCurrency(payPeriodForecast.projectedTakeHome)}
-                  helper={`Through day ${payPeriodForecast.elapsedDays} of ${
-                    payPeriodForecast.totalDays
-                  }, pacing toward ${formatCurrency(
-                    payPeriodForecast.projectedNetTips
-                  )} in net tips.`}
-                  accent={ACCENTS.warning}
-                />
-                </>
-                ) : null}
-                <SummaryCard
-                  icon={Wallet}
-                  isDarkMode={isDarkMode}
-                  label="Yearly wages"
-                  value={formatCurrency(yearlyStats.totalTakeHome)}
-                  helper={`${yearlyStats.year} running total ${
-                    selectedJob ? `for ${selectedJob.name}.` : 'across all saved shifts.'
-                  }`}
-                  accent={ACCENTS.neutral}
-                />
-                <InsightCard
-                  isDarkMode={isDarkMode}
-                  label="Insight"
-                  title={
-                    dashboardInsights.bestShift
-                      ? `Best shift: ${formatCurrency(dashboardInsights.bestShift.takeHome)}`
-                      : 'Best shift insight appears once shifts are logged'
-                  }
-                  helper={
-                    dashboardInsights.bestShift
-                      ? `${formatDateLabel(
-                          dashboardInsights.bestShift.date
-                        )} delivered ${formatCurrency(
-                          dashboardInsights.bestShift.sales
-                        )} in sales. Net tips are running at ${formatMultiplier(
-                          dashboardInsights.netTipRate
-                        )} tip-out this period.`
-                      : 'Add a few more shifts and the dashboard will start surfacing smarter patterns.'
-                  }
-                  accent={ACCENTS.primary}
-                />
-              </SimpleGrid>
-            </Box>
 
-            {view === 'byDay' ? (
-              <Flex
-                mb={4}
-                p={4}
-                bg="rgba(255, 255, 255, 0.9)"
-                borderRadius="3xl"
-                border="1px solid"
-                borderColor="rgba(22, 33, 43, 0.06)"
-                align={{ base: 'flex-start', md: 'center' }}
-                justify="space-between"
-                direction={{ base: 'column', md: 'row' }}
-                gap={3}
-              >
-                <Box>
-                  <Text fontWeight="semibold">
-                    {activeHistoryLabel || 'Browse your saved shifts'}
-                  </Text>
-                  <Text color="gray.400" fontSize="sm">
-                    Filter by day, month, week, or pay period to find and fix older entries faster.
-                  </Text>
-                </Box>
-                <HStack spacing={2} flexWrap="wrap">
-                  <Select
-                    value={historyFilterType}
-                    onChange={(event) => handleHistoryFilterTypeChange(event.target.value)}
-                    maxW={{ base: 'full', md: '180px' }}
-                  >
-                    <option value="all">All shifts</option>
-                    <option value="days">By days</option>
-                    <option value="month">By month</option>
-                    <option value="week">By week</option>
-                    <option value="payPeriod">By pay period</option>
-                  </Select>
-                  {historyFilterType === 'days' ? (
+                <SimpleGrid columns={{ base: 1, sm: 2, xl: topSummary.shifts > 0 ? 4 : 3 }} gap={4}>
+                  {topSummary.shifts > 0 ? (
                     <>
-                      <Select
-                        value={historyFilterValue}
-                        onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
-                        maxW={{ base: 'full', md: '180px' }}
-                      >
-                        <option value="7">Last 7 days</option>
-                        <option value="14">Last 14 days</option>
-                        <option value="30">Last 30 days</option>
-                        <option value="60">Last 60 days</option>
-                        <option value="custom">Custom days</option>
-                      </Select>
-                      {historyFilterValue === 'custom' ? (
-                        <Input
-                          type="number"
-                          min={1}
-                          value={historyCustomDays}
-                          onChange={(event) => setHistoryCustomDays(event.target.value)}
-                          maxW={{ base: 'full', md: '150px' }}
-                          placeholder="Days"
-                        />
-                      ) : null}
+                      <SummaryCard
+                        icon={Target}
+                        isDarkMode={isDarkMode}
+                        label="Projected finish"
+                        value={formatCurrency(payPeriodForecast.projectedTakeHome)}
+                        helper={`Day ${payPeriodForecast.elapsedDays} of ${payPeriodForecast.totalDays}. At this pace you'll keep about ${formatCurrency(
+                          payPeriodForecast.projectedNetTips
+                        )} in net tips.`}
+                        accent={ACCENTS.warning}
+                      />
+                      <SummaryCard
+                        icon={Percent}
+                        isDarkMode={isDarkMode}
+                        label="Tip rate this period"
+                        value={`${dashboardInsights.tipPercent.toFixed(1)}%`}
+                        helper={`Gross tips as a share of ${formatCurrency(
+                          topSummary.sales
+                        )} sales. ${formatCurrency(topSummary.tipOut)} went to tip-out.`}
+                        accent={ACCENTS.positive}
+                      />
                     </>
-                  ) : null}
-                  {historyFilterType === 'month' ? (
-                    <Select
-                      placeholder="Choose month"
-                      value={historyFilterValue}
-                      onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
-                      maxW={{ base: 'full', md: '220px' }}
-                    >
-                      {monthOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                  ) : null}
-                  {historyFilterType === 'week' ? (
-                    <Select
-                      placeholder="Choose week"
-                      value={historyFilterValue}
-                      onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
-                      maxW={{ base: 'full', md: '220px' }}
-                    >
-                      {weekOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                  ) : null}
-                  {historyFilterType === 'payPeriod' ? (
-                    <Select
-                      placeholder="Choose pay period"
-                      value={historyFilterValue}
-                      onChange={(event) => handleHistoryFilterValueChange(event.target.value)}
-                      maxW={{ base: 'full', md: '240px' }}
-                    >
-                      {payPeriodOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                  ) : null}
-                  <Button variant="outline" onClick={clearHistoryFilters}>
-                    Clear
-                  </Button>
-                </HStack>
-              </Flex>
-            ) : null}
+                  ) : (
+                    <SummaryCard
+                      icon={TrendingUp}
+                      isDarkMode={isDarkMode}
+                      label="Last period"
+                      value={lastLoggedPeriod ? formatCurrency(lastLoggedPeriod.totalTakeHome) : '—'}
+                      helper={
+                        lastLoggedPeriod
+                          ? `${lastLoggedPeriod.label} · ${lastLoggedPeriod.shifts} shifts`
+                          : 'Your first full pay period will show here.'
+                      }
+                      accent={ACCENTS.positive}
+                    />
+                  )}
+                  <SummaryCard
+                    icon={Wallet}
+                    isDarkMode={isDarkMode}
+                    label={`${yearlyStats.year} so far`}
+                    value={formatCurrency(yearlyStats.totalTakeHome)}
+                    helper={`${yearlyStats.totalShifts} shifts · ${formatHours(yearlyStats.totalHours)} hrs${
+                      selectedJob ? ` at ${selectedJob.name}` : ''
+                    }.`}
+                    accent={ACCENTS.neutral}
+                  />
+                  <SummaryCard
+                    icon={TrendingUp}
+                    isDarkMode={isDarkMode}
+                    label="Best shift"
+                    value={dashboardInsights.bestShift ? formatCurrency(dashboardInsights.bestShift.takeHome) : '—'}
+                    helper={
+                      dashboardInsights.bestShift
+                        ? `${formatDateLabel(dashboardInsights.bestShift.date)} on ${formatCurrency(
+                            dashboardInsights.bestShift.sales
+                          )} in sales.`
+                        : 'Shows up once you log a shift.'
+                    }
+                    accent={ACCENTS.primary}
+                  />
+                </SimpleGrid>
 
-            {view === 'about' ? <AboutView isDarkMode={isDarkMode} /> : null}
-
-            {view === 'dashboard' ? (
-              <Box display="grid" gap={6}>
-                <BiWeeklyHours
-                  isDarkMode={isDarkMode}
-                  shifts={filteredByJobShifts}
-                  settings={settings}
-                  onSelectPeriod={handlePayPeriodSelect}
-                />
                 <ShiftsByDay
                   isDarkMode={isDarkMode}
-                  shifts={sortedShifts.slice(0, 8)}
+                  shifts={sortedShifts.slice(0, 6)}
                   settings={settings}
                   jobs={jobs}
                   onEdit={handleEditShift}
                   onDelete={handleDeleteShift}
                   title="Recent shifts"
-                  badgeLabel={recentShift ? `Last shift ${formatDateLabel(recentShift.date)}` : '0 shifts'}
+                  badgeLabel={sortedShifts.length ? `Last ${Math.min(6, sortedShifts.length)}` : ''}
+                  groupByMonth={false}
                   emptyTitle="No shifts logged yet."
                   emptySubtitle="Add your first shift and the dashboard will start filling in."
+                  footer={
+                    sortedShifts.length > 6 ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        width="100%"
+                        color={themeTokens.textMuted}
+                        onClick={() => changeView('shifts')}
+                      >
+                        See all {sortedShifts.length} shifts
+                      </Button>
+                    ) : null
+                  }
+                />
+
+                <BiWeeklyHours
+                  isDarkMode={isDarkMode}
+                  shifts={filteredByJobShifts}
+                  settings={settings}
+                  onSelectPeriod={handlePayPeriodSelect}
+                  hideEmptyCurrent
                 />
               </Box>
             ) : null}
 
-            {view === 'byDay' ? (
+            {view === 'shifts' ? (
               <ShiftsByDay
                 isDarkMode={isDarkMode}
                 shifts={filteredShifts}
@@ -2674,18 +2609,25 @@ function App() {
                 jobs={jobs}
                 onEdit={handleEditShift}
                 onDelete={handleDeleteShift}
-                title={activeHistoryLabel || 'All shifts'}
-                badgeLabel={`${filteredShifts.length} ${filteredShifts.length === 1 ? 'shift' : 'shifts'}`}
+                title={
+                  activeHistoryLabel
+                    ? activeHistoryLabel
+                        .replace(/^Filtered to /, '')
+                        .replace(/^./, (first) => first.toUpperCase())
+                    : 'All shifts'
+                }
+                searchable
+                filters={historyFilters}
                 emptyTitle={selectedDate || historyFilterValue ? 'No shifts in this filter.' : 'No shifts logged yet.'}
                 emptySubtitle={
                   selectedDate || historyFilterValue
-                    ? 'Try another filter or clear it to see your full shift history.'
+                    ? 'Try another filter or clear it to see your full history.'
                     : 'Add a shift to start building your history.'
                 }
               />
             ) : null}
 
-            {view === 'biWeekly' ? (
+            {view === 'payPeriods' ? (
               <BiWeeklyHours
                 isDarkMode={isDarkMode}
                 shifts={filteredByJobShifts}
@@ -2693,18 +2635,88 @@ function App() {
                 onSelectPeriod={handlePayPeriodSelect}
               />
             ) : null}
-            {view === 'floor' ? (
-              <FloorComparison shifts={filteredByJobShifts} settings={settings} />
+
+            {view === 'insights' ? (
+              <FloorComparison isDarkMode={isDarkMode} shifts={filteredByJobShifts} settings={settings} />
             ) : null}
+
             {view === 'calendar' ? (
               <CalendarView
+                isDarkMode={isDarkMode}
                 shifts={filteredByJobShifts}
+                settings={settings}
                 selectedDate={selectedDate}
                 onDateClick={handleCalendarDateClick}
               />
             ) : null}
+
+            {view === 'about' ? <AboutView isDarkMode={isDarkMode} /> : null}
+
+            {!isSupabaseConfigured ? (
+              <Text mt={8} textAlign="center" fontSize="12px" color={themeTokens.textSubtle}>
+                Saved on this device only. Add Supabase keys in Vercel to turn on accounts and sync.
+              </Text>
+            ) : null}
           </Box>
         </Box>
+
+        {/* Phone: floating add button + bottom tab bar, both within thumb reach. */}
+        <IconButton
+          display={{ base: 'inline-flex', md: 'none' }}
+          position="fixed"
+          right={4}
+          bottom="84px"
+          zIndex={24}
+          boxSize="56px"
+          borderRadius="full"
+          bg={ACCENTS.primary}
+          color="white"
+          _hover={{ bg: '#2f6fd0' }}
+          boxShadow="0 10px 24px rgba(37, 99, 235, 0.45)"
+          icon={<Plus size={24} />}
+          aria-label="Add shift"
+          onClick={openNewShiftDialog}
+        />
+        <Flex
+          as="nav"
+          display={{ base: 'flex', md: 'none' }}
+          position="fixed"
+          bottom={0}
+          insetX={0}
+          zIndex={20}
+          bg={isDarkMode ? 'rgba(11, 18, 32, 0.92)' : 'rgba(255, 255, 255, 0.94)'}
+          backdropFilter="blur(20px) saturate(180%)"
+          borderTop="1px solid"
+          borderColor={themeTokens.border}
+          pb="env(safe-area-inset-bottom)"
+          aria-label="Main"
+        >
+          {navItems.map(({ value, short, icon: Icon }) => {
+            const isActive = view === value;
+            return (
+              <Flex
+                as="button"
+                type="button"
+                key={value}
+                data-nav={value}
+                flex="1"
+                direction="column"
+                align="center"
+                justify="center"
+                gap="3px"
+                py={2.5}
+                color={isActive ? ACCENTS.primary : themeTokens.textMuted}
+                onClick={() => changeView(value)}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <Icon size={20} strokeWidth={isActive ? 2.4 : 2} />
+                <Text fontSize="10.5px" fontWeight={isActive ? 650 : 500}>
+                  {short}
+                </Text>
+              </Flex>
+            );
+          })}
+        </Flex>
 
         <AddShiftDialog
           isDarkMode={isDarkMode}

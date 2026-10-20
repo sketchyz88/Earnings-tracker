@@ -1,83 +1,71 @@
-import { Alert, AlertDescription, AlertIcon, Box, Heading, SimpleGrid, Text } from '@chakra-ui/react';
+import { Box, Heading, SimpleGrid, Text } from '@chakra-ui/react';
+import { ACCENTS, RADII, palette } from '../theme/tokens';
+import { Label, Panel } from './ui';
 
-function InfoCard({ title, body }) {
-  return (
-    <Box
-      bg="rgba(255, 255, 255, 0.9)"
-      borderRadius="3xl"
-      border="1px solid"
-      borderColor="rgba(22, 33, 43, 0.06)"
-      p={{ base: 5, md: 6 }}
-      boxShadow="0 18px 36px rgba(34, 46, 56, 0.06)"
-    >
-      <Text fontSize="xs" color="brand.600" fontWeight="semibold" letterSpacing="0.14em" textTransform="uppercase">
-        Details
-      </Text>
-      <Heading mt={3} size="sm" letterSpacing="-0.02em" color="#18222c">
-        {title}
-      </Heading>
-      <Text mt={3} color="gray.800" lineHeight="tall">
-        {body}
-      </Text>
-    </Box>
-  );
-}
+const CARDS = [
+  {
+    title: 'What gets tracked',
+    body: 'Each shift can include the date, start and end time, hours, sales, tips, floor or section, notes, and base pay. tips.cafe subtracts tip-out and shows what you actually kept.',
+  },
+  {
+    title: 'How tip-out works',
+    body: 'Tip-out is a percentage of sales, set in Settings. It comes out of your gross tips, so every total you see is what lands in your pocket.',
+  },
+  {
+    title: 'Receipt scanning',
+    body: 'Snap or upload your checkout receipt. The scanner reads the date, clock-out time, sales, and credit tips, and assumes a 5:00 PM start to work out hours. You can fix anything before saving.',
+  },
+  {
+    title: 'Getting the most out of it',
+    body: 'Log every shift with its section. After a few weeks, Insights shows which days and sections pay best per hour, and Pay periods tracks you against your goals. Press N on a keyboard to add a shift fast.',
+  },
+];
 
 function AboutView({ isDarkMode = false }) {
+  const tokens = palette(isDarkMode);
   return (
     <Box display="grid" gap={4}>
-      <Box
-        bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.92)'}
-        borderRadius="3xl"
-        border="1px solid"
-        borderColor={isDarkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(22, 33, 43, 0.06)'}
-        p={{ base: 5, md: 6 }}
-        boxShadow="0 20px 42px rgba(34, 46, 56, 0.07)"
-      >
-        <Text fontSize="sm" color="brand.600" fontWeight="semibold" letterSpacing="0.14em">
-          ABOUT THIS APP
-        </Text>
-        <Heading mt={2} size="lg" letterSpacing="-0.03em" color={isDarkMode ? 'white' : '#18222c'}>
-          What Earnings Tracker does
+      <Panel isDarkMode={isDarkMode}>
+        <Label isDarkMode={isDarkMode} color={ACCENTS.primary}>
+          About tips.cafe
+        </Label>
+        <Heading mt={2} size="lg" letterSpacing="-0.03em" color={tokens.text}>
+          Know what you actually take home
         </Heading>
-        <Text mt={3} color={isDarkMode ? 'gray.300' : 'gray.800'} lineHeight="tall">
-          Earnings Tracker helps servers log shifts, track sales and tips, subtract tip-out,
-          calculate take-home pay, and review pay periods over time. You can type shifts in
-          manually or scan receipt photos to prefill the details faster.
+        <Text mt={3} color={tokens.textMuted} lineHeight="tall" maxW="70ch">
+          tips.cafe helps servers log shifts, track sales and tips, subtract tip-out, and see real
+          take-home pay by shift, pay period, day of the week, and section. Type shifts in or scan a
+          receipt to fill them in faster.
         </Text>
-      </Box>
-
-      <Alert
-        status="info"
-        borderRadius="3xl"
-        bg="rgba(250, 251, 249, 0.95)"
-        border="1px solid rgba(22, 33, 43, 0.06)"
-      >
-        <AlertIcon />
-        <AlertDescription>
-          Privacy disclaimer: each person should use their own password-protected account. Other
-          coworkers cannot see your shifts without signing into your account, and the app owner
-          cannot view your private data just by sharing the website.
-        </AlertDescription>
-      </Alert>
+        <Box
+          mt={5}
+          p={4}
+          borderRadius={RADII.lg}
+          bg={tokens.surfaceSunken}
+          border="1px solid"
+          borderColor={tokens.border}
+        >
+          <Text fontSize="sm" fontWeight={600} color={tokens.text}>
+            Your data is private
+          </Text>
+          <Text mt={1} fontSize="sm" color={tokens.textMuted} lineHeight="1.6">
+            Each person uses their own password-protected account. Coworkers can&rsquo;t see your
+            shifts, and sharing the website doesn&rsquo;t give anyone access to your numbers.
+          </Text>
+        </Box>
+      </Panel>
 
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-        <InfoCard
-          title="What gets tracked"
-          body="Each shift can include the date, start time, end time, hours worked, sales, tips, floor, notes, and estimated base pay. The app also shows total tip-out removed and net tips after deductions."
-        />
-        <InfoCard
-          title="How tip-out works"
-          body="Tip-out is calculated as a percentage of sales using your settings. That amount is subtracted from gross tips so you can see what you actually kept for the shift and over each pay period."
-        />
-        <InfoCard
-          title="How receipt scanning works"
-          body="Receipt scans try to read the top receipt date and clock-out time, then use a default 5:00 PM start time to calculate hours automatically. The scanner also looks for sales and credit tips."
-        />
-        <InfoCard
-          title="Best way to use it"
-          body="Create your own account, log each shift with the real date, and import any older device-only data once if needed. Then use the Dashboard, By Day, Bi-Weekly, and Calendar views to look back at trends."
-        />
+        {CARDS.map((card) => (
+          <Panel key={card.title} isDarkMode={isDarkMode}>
+            <Heading size="sm" letterSpacing="-0.02em" color={tokens.text}>
+              {card.title}
+            </Heading>
+            <Text mt={2} color={tokens.textMuted} fontSize="sm" lineHeight="1.65">
+              {card.body}
+            </Text>
+          </Panel>
+        ))}
       </SimpleGrid>
     </Box>
   );

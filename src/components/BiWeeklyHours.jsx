@@ -295,7 +295,7 @@ function PeriodTooltip({ active, payload, label, isDarkMode }) {
   );
 }
 
-function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod }) {
+function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod, hideEmptyCurrent = false }) {
   const periods = getPeriods(
     shifts || [],
     settings?.hourlyRate || 0,
@@ -365,6 +365,8 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
 
   return (
     <Box display="grid" gap={4}>
+      {/* On the dashboard the hero already says the period is empty; don't say it twice. */}
+      {hideEmptyCurrent && currentPeriod.shifts === 0 ? null : (
       <Box
         bg={tokens.surface}
         backdropFilter="blur(12px)"
@@ -477,6 +479,7 @@ function BiWeeklyHours({ isDarkMode = false, shifts, settings, onSelectPeriod })
         </>
         )}
       </Box>
+      )}
 
       {periods.length ? (
         <Box

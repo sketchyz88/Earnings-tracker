@@ -1,15 +1,23 @@
+/**
+ * Insights: where and when you earn the most.
+ *
+ * Two breakdowns over one shared date range — by day of the week and by
+ * floor/section — each ranked by take-home per hour, which is the fairest way
+ * to compare a 4-hour lunch with an 8-hour Saturday.
+ */
 import { useMemo, useState } from 'react';
-import { Box, Badge, FormControl, FormLabel, Heading, Input, Select, SimpleGrid, Text } from '@chakra-ui/react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { formatCurrency } from '../utils/format';
+import { Box, Flex, SimpleGrid, Text } from '@chakra-ui/react';
+import { formatCurrency, formatHours } from '../utils/format';
+import { WEEKDAYS, summarize, toDate } from '../utils/shiftMath';
+import { ACCENTS, RADII, palette } from '../theme/tokens';
+import { EmptyState, Label, Panel, PanelHeader, Segmented } from './ui';
+
+const RANGE_OPTIONS = [
+  { value: '30', label: '30 days' },
+  { value: '90', label: '90 days' },
+  { value: '365', label: '1 year' },
+  { value: 'all', label: 'All time' },
+];
 
 function startOfDay(date) {
   const normalized = new Date(date);
@@ -17,242 +25,210 @@ function startOfDay(date) {
   return normalized;
 }
 
-function getDateRangeLabel(days) {
-  return `Last ${days} day${days === 1 ? '' : 's'}`;
+function RankedRow({ isDarkMode, rank, name, stats, maxPerHour, isTop }) {
+  const tokens = palette(isDarkMode);
+  const width = maxPerHour > 0 ? Math.max(4, (stats.perHour / maxPerHour) * 100) : 0;
+
+  return (
+    <Box py={3} borderTop={rank > 1 ? '1px solid' : 'none'} borderColor={tokens.border}>
+      <Flex justify="space-between" align="baseline" gap={3}>
+        <Flex align="baseline" gap={2} minW={0}>
+          <Text fontSize="12px" color={tokens.textSubtle} w="16px" flexShrink={0} data-numeric>
+            {rank}
+          </Text>
+          <Box minW={0}>
+            <Text fontSize="sm" fontWeight={650} color={tokens.text} noOfLines={1}>
+              {name}
+              {isTop ? (
+                <Box
+                  as="span"
+                  ml={2}
+                  fontSize="10px"
+                  fontWeight={700}
+                  textTransform="uppercase"
+                  letterSpacing="0.06em"
+                  color={ACCENTS.positive}
+                >
+                  Best
+                </Box>
+              ) : null}
+            </Text>
+            <Text fontSize="12px" color={tokens.textSubtle} data-numeric>
+              {stats.shifts} {stats.shifts === 1 ? 'shift' : 'shifts'} · {formatHours(stats.hours)} hrs ·{' '}
+              {stats.tipPercent.toFixed(1)}% tips · {formatCurrency(stats.perShift)}/shift
+            </Text>
+          </Box>
+        </Flex>
+        <Text fontSize="16px" fontWeight={700} color={tokens.text} flexShrink={0} data-numeric>
+          {formatCurrency(stats.perHour)}
+          <Box as="span" fontSize="12px" fontWeight={500} color={tokens.textSubtle}>
+            /hr
+          </Box>
+        </Text>
+      </Flex>
+      <Box mt={2} ml="24px" h="6px" borderRadius="full" bg={tokens.surfaceSunken} overflow="hidden">
+        <Box
+          h="100%"
+          w={`${width}%`}
+          borderRadius="full"
+          bg={isTop ? ACCENTS.positive : ACCENTS.primary}
+          opacity={isTop ? 1 : 0.75}
+          transition="width 320ms cubic-bezier(0.4, 0, 0.2, 1)"
+        />
+      </Box>
+    </Box>
+  );
 }
 
-function FloorComparison({ shifts, settings }) {
-  const [rangePreset, setRangePreset] = useState('14');
-  const [customDays, setCustomDays] = useState('30');
+function Breakdown({ isDarkMode, title, subtitle, rows, emptyText }) {
+  const maxPerHour = Math.max(0, ...rows.map((row) => row.stats.perHour));
+  return (
+    <Panel isDarkMode={isDarkMode}>
+      <PanelHeader isDarkMode={isDarkMode} title={title} subtitle={subtitle} mb={2} />
+      {rows.length ? (
+        rows.map((row, index) => (
+          <RankedRow
+            key={row.name}
+            isDarkMode={isDarkMode}
+            rank={index + 1}
+            name={row.name}
+            stats={row.stats}
+            maxPerHour={maxPerHour}
+            isTop={index === 0 && rows.length > 1}
+          />
+        ))
+      ) : (
+        <Box mt={3}>
+          <EmptyState isDarkMode={isDarkMode} title={emptyText} />
+        </Box>
+      )}
+    </Panel>
+  );
+}
 
-  const selectedDays = useMemo(() => {
-    if (rangePreset === 'custom') {
-      const parsed = Number(customDays);
-      return Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
+function FloorComparison({ isDarkMode = true, shifts, settings }) {
+  const tokens = palette(isDarkMode);
+  const [range, setRange] = useState('90');
+
+  const rangeShifts = useMemo(() => {
+    const all = (shifts || []).filter((shift) => shift?.date);
+    if (range === 'all') {
+      return all;
     }
-
-    return Number(rangePreset) || 14;
-  }, [customDays, rangePreset]);
-
-  const filteredShifts = useMemo(() => {
-    const allShifts = shifts || [];
-    if (!allShifts.length) {
-      return [];
-    }
-
     const today = startOfDay(new Date());
     const rangeStart = new Date(today);
-    rangeStart.setDate(rangeStart.getDate() - (selectedDays - 1));
-
-    return allShifts.filter((shift) => {
-      if (!shift?.date) {
-        return false;
-      }
-
-      const shiftDate = startOfDay(new Date(`${shift.date}T00:00:00`));
+    rangeStart.setDate(rangeStart.getDate() - (Number(range) - 1));
+    return all.filter((shift) => {
+      const shiftDate = toDate(shift.date);
       return shiftDate >= rangeStart && shiftDate <= today;
     });
-  }, [selectedDays, shifts]);
+  }, [range, shifts]);
 
-  const tipOutRate = (Number(settings?.tipOutRate) || 0) / 100;
-  const floorMap = filteredShifts.reduce((accumulator, shift) => {
-    const floorName = shift.floor || 'Unspecified';
+  const overall = summarize(rangeShifts, settings);
 
-    if (!accumulator[floorName]) {
-      accumulator[floorName] = {
-        floor: floorName,
-        shifts: 0,
-        hours: 0,
-        tips: 0,
-        basePay: 0,
-      };
-    }
+  const weekdayRows = useMemo(() => {
+    const buckets = WEEKDAYS.map(() => []);
+    rangeShifts.forEach((shift) => buckets[toDate(shift.date).getDay()].push(shift));
+    return buckets
+      .map((bucket, index) => ({ name: WEEKDAYS[index], stats: summarize(bucket, settings) }))
+      .filter((row) => row.stats.shifts > 0)
+      .sort((left, right) => right.stats.perHour - left.stats.perHour);
+  }, [rangeShifts, settings]);
 
-    const hours = Number(shift.hours) || 0;
-    const sales = Number(shift.sales) || 0;
-    const tips = Number(shift.tips) || 0;
-    const tipOut = sales * tipOutRate;
-    const explicitBasePay = Number(shift.earnings);
+  const floorRows = useMemo(() => {
+    const buckets = new Map();
+    rangeShifts.forEach((shift) => {
+      const name = shift.floor?.trim() || 'No section set';
+      if (!buckets.has(name)) {
+        buckets.set(name, []);
+      }
+      buckets.get(name).push(shift);
+    });
+    return Array.from(buckets.entries())
+      .map(([name, bucket]) => ({ name, stats: summarize(bucket, settings) }))
+      .sort((left, right) => right.stats.perHour - left.stats.perHour);
+  }, [rangeShifts, settings]);
 
-    accumulator[floorName].shifts += 1;
-    accumulator[floorName].hours += hours;
-    accumulator[floorName].sales = (accumulator[floorName].sales || 0) + sales;
-    accumulator[floorName].tips += tips;
-    accumulator[floorName].tipOut = (accumulator[floorName].tipOut || 0) + tipOut;
-    accumulator[floorName].basePay +=
-      Number.isFinite(explicitBasePay) && explicitBasePay > 0
-        ? explicitBasePay
-        : hours * (settings?.hourlyRate || 0);
-
-    return accumulator;
-  }, {});
-
-  const data = Object.values(floorMap)
-    .map((floor) => ({
-      ...floor,
-      hours: Number(floor.hours.toFixed(1)),
-      sales: Number((floor.sales || 0).toFixed(2)),
-      tips: Number(floor.tips.toFixed(2)),
-      tipOut: Number((floor.tipOut || 0).toFixed(2)),
-      netTips: Number((floor.tips - (floor.tipOut || 0)).toFixed(2)),
-      basePay: Number(floor.basePay.toFixed(2)),
-      tipsPerHour: floor.hours > 0 ? Number(((floor.tips - (floor.tipOut || 0)) / floor.hours).toFixed(2)) : 0,
-      takeHomePerShift:
-        floor.shifts > 0 ? Number(((floor.tips - (floor.tipOut || 0) + floor.basePay) / floor.shifts).toFixed(2)) : 0,
-    }))
-    .sort((left, right) => right.tipsPerHour - left.tipsPerHour);
-
-  if (!data.length) {
-    return (
-      <Box display="grid" gap={4}>
-        <Box
-          bg="#182133"
-          borderRadius="2xl"
-          border="1px solid"
-          borderColor="whiteAlpha.100"
-          p={{ base: 5, md: 6 }}
-        >
-          <SimpleGrid columns={{ base: 1, md: rangePreset === 'custom' ? 2 : 1 }} spacing={4}>
-            <FormControl maxW={{ md: '260px' }}>
-              <FormLabel color="gray.300">Date range</FormLabel>
-              <Select value={rangePreset} onChange={(event) => setRangePreset(event.target.value)}>
-                <option value="7">Last 7 days</option>
-                <option value="10">Last 10 days</option>
-                <option value="14">Last 14 days</option>
-                <option value="30">Last 30 days</option>
-                <option value="custom">Custom days</option>
-              </Select>
-            </FormControl>
-            {rangePreset === 'custom' ? (
-              <FormControl maxW={{ md: '220px' }}>
-                <FormLabel color="gray.300">Custom days</FormLabel>
-                <Input
-                  type="number"
-                  min={1}
-                  value={customDays}
-                  onChange={(event) => setCustomDays(event.target.value)}
-                  placeholder="30"
-                />
-              </FormControl>
-            ) : null}
-          </SimpleGrid>
-        </Box>
-
-        <Box
-          textAlign="center"
-          py={12}
-          px={6}
-          bg="#182133"
-          borderRadius="2xl"
-          border="1px solid"
-          borderColor="whiteAlpha.100"
-        >
-          <Text fontSize="lg" fontWeight="semibold">
-            No floor data for {getDateRangeLabel(selectedDays).toLowerCase()}
-          </Text>
-          <Text mt={2} color="gray.400">
-            Add shifts with a floor or widen the date range to compare where you earn best.
-          </Text>
-        </Box>
-      </Box>
-    );
-  }
+  const bestDay = weekdayRows[0];
+  const worstDay = weekdayRows[weekdayRows.length - 1];
 
   return (
     <Box display="grid" gap={4}>
-      <Box
-        bg="#182133"
-        borderRadius="2xl"
-        border="1px solid"
-        borderColor="whiteAlpha.100"
-        p={{ base: 5, md: 6 }}
-      >
-        <SimpleGrid columns={{ base: 1, md: rangePreset === 'custom' ? 2 : 1 }} spacing={4}>
-          <FormControl maxW={{ md: '260px' }}>
-            <FormLabel color="gray.300">Date range</FormLabel>
-            <Select value={rangePreset} onChange={(event) => setRangePreset(event.target.value)}>
-              <option value="7">Last 7 days</option>
-              <option value="10">Last 10 days</option>
-              <option value="14">Last 14 days</option>
-              <option value="30">Last 30 days</option>
-              <option value="custom">Custom days</option>
-            </Select>
-          </FormControl>
-          {rangePreset === 'custom' ? (
-            <FormControl maxW={{ md: '220px' }}>
-              <FormLabel color="gray.300">Custom days</FormLabel>
-              <Input
-                type="number"
-                min={1}
-                value={customDays}
-                onChange={(event) => setCustomDays(event.target.value)}
-                placeholder="30"
-              />
-            </FormControl>
-          ) : null}
-        </SimpleGrid>
-        <Text mt={3} color="gray.400" fontSize="sm">
-          Showing floor results for {getDateRangeLabel(selectedDays).toLowerCase()}.
-        </Text>
-      </Box>
-
-      <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={4}>
-        {data.map((floor) => (
-          <Box
-            key={floor.floor}
-            bg="#182133"
-            borderRadius="2xl"
-            border="1px solid"
-            borderColor="whiteAlpha.100"
-            p={5}
-          >
-            <Badge colorScheme="purple" borderRadius="full" px={3} py={1}>
-              {floor.floor}
-            </Badge>
-            <Text mt={3} color="gray.400" fontSize="sm">
-              {floor.shifts} {floor.shifts === 1 ? 'shift' : 'shifts'} • {floor.hours.toFixed(1)} hours
+      <Panel isDarkMode={isDarkMode}>
+        <Flex justify="space-between" align={{ base: 'flex-start', md: 'center' }} gap={4} wrap="wrap">
+          <Box>
+            <Text fontSize="lg" fontWeight={700} letterSpacing="-0.02em" color={tokens.text}>
+              Where and when you earn most
             </Text>
-            <Text mt={3} fontSize="2xl" fontWeight="bold" color="green.300">
-              {formatCurrency(floor.netTips)}
-            </Text>
-            <Text color="gray.400" fontSize="sm">
-              {formatCurrency(floor.tipOut)} tip-out • {formatCurrency(floor.tipsPerHour)}/hr net tips
-            </Text>
-            <Text mt={3} color="blue.200" fontSize="sm">
-              {formatCurrency(floor.takeHomePerShift)} average take-home per shift
+            <Text mt={1} fontSize="13px" color={tokens.textMuted}>
+              Ranked by take-home per hour, so short and long shifts compare fairly.
             </Text>
           </Box>
-        ))}
-      </SimpleGrid>
+          <Segmented isDarkMode={isDarkMode} options={RANGE_OPTIONS} value={range} onChange={setRange} />
+        </Flex>
 
-      <Box
-        bg="#182133"
-        borderRadius="2xl"
-        border="1px solid"
-        borderColor="whiteAlpha.100"
-        p={{ base: 5, md: 6 }}
-      >
-        <Heading size="sm" mb={4}>
-          Net tips per hour by floor
-        </Heading>
+        {overall.shifts ? (
+          <SimpleGrid
+            columns={{ base: 2, md: 4 }}
+            spacing={3}
+            mt={5}
+            p={3}
+            borderRadius={RADII.lg}
+            bg={tokens.surfaceSunken}
+            border="1px solid"
+            borderColor={tokens.border}
+          >
+            {[
+              ['Per hour', formatCurrency(overall.perHour)],
+              ['Per shift', formatCurrency(overall.perShift)],
+              ['Tip % of sales', `${overall.tipPercent.toFixed(1)}%`],
+              ['Tip-out paid', formatCurrency(overall.tipOut)],
+            ].map(([label, value]) => (
+              <Box key={label}>
+                <Label isDarkMode={isDarkMode}>{label}</Label>
+                <Text mt={1} fontSize="17px" fontWeight={650} color={tokens.text} data-numeric>
+                  {value}
+                </Text>
+              </Box>
+            ))}
+          </SimpleGrid>
+        ) : null}
 
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={data} margin={{ top: 8, right: 16, left: -16, bottom: 8 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-            <XAxis dataKey="floor" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
-            <Tooltip
-              formatter={(value) => [formatCurrency(value), 'Tips / hour']}
-              contentStyle={{
-                backgroundColor: '#0f172a',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: '14px',
-              }}
-            />
-            <Bar dataKey="tipsPerHour" fill="#9f7aea" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </Box>
+        {bestDay && worstDay && bestDay !== worstDay ? (
+          <Text mt={4} fontSize="sm" color={tokens.textMuted} lineHeight="1.6" data-numeric>
+            <Box as="span" color={tokens.text} fontWeight={600}>
+              {bestDay.name}s
+            </Box>{' '}
+            pay you {formatCurrency(bestDay.stats.perHour - worstDay.stats.perHour)}/hr more than{' '}
+            {worstDay.name}s. If you can pick up or swap shifts, that&rsquo;s the day to chase.
+          </Text>
+        ) : null}
+      </Panel>
+
+      {!overall.shifts ? (
+        <EmptyState
+          isDarkMode={isDarkMode}
+          title="No shifts in this range"
+          subtitle="Pick a longer range above, or log a few shifts to see your best days and sections."
+        />
+      ) : (
+        <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4} alignItems="start">
+          <Breakdown
+            isDarkMode={isDarkMode}
+            title="By day of the week"
+            subtitle="Average across every shift on that day"
+            rows={weekdayRows}
+            emptyText="No shifts yet"
+          />
+          <Breakdown
+            isDarkMode={isDarkMode}
+            title="By floor / section"
+            subtitle="Set the floor when you log a shift to compare sections"
+            rows={floorRows}
+            emptyText="No floors recorded yet"
+          />
+        </SimpleGrid>
+      )}
     </Box>
   );
 }

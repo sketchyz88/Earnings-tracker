@@ -1,50 +1,208 @@
+import { useMemo, useState } from 'react';
 import {
-  Badge,
   Box,
+  Button,
+  Collapse,
   Flex,
-  Heading,
   HStack,
-  IconButton,
-  Table,
-  Tbody,
-  Td,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  SimpleGrid,
   Text,
-  Th,
-  Thead,
-  Tr,
 } from '@chakra-ui/react';
-import { Edit, Trash2 } from 'lucide-react';
-import { getPeriodEnd, getPeriodStart } from './BiWeeklyHours';
-import { formatCurrency } from '../utils/format';
+import { ChevronDown, Pencil, Search, Trash2 } from 'lucide-react';
+import { formatCurrency, formatHours } from '../utils/format';
+import {
+  formatShiftTime,
+  getBasePay,
+  getGrossTips,
+  getHours,
+  getNetTips,
+  getSales,
+  getTakeHome,
+  getTipOut,
+  summarize,
+  toDate,
+} from '../utils/shiftMath';
+import { ACCENTS, RADII, palette } from '../theme/tokens';
+import { EmptyState, Panel, PanelHeader, Tag } from './ui';
 
 function getShiftSortTimestamp(shift) {
   if (!shift?.date) {
     return Number.NEGATIVE_INFINITY;
   }
-
   const timeValue = shift.endTime || shift.startTime || '00:00';
-  return new Date(`${shift.date}T${timeValue}:00`).getTime();
-}
-
-function formatPayPeriodLabel(dateString, settings) {
-  if (!dateString) {
-    return 'No pay period';
-  }
-
-  const periodStart = getPeriodStart(new Date(`${dateString}T00:00:00`), settings);
-  const periodEnd = getPeriodEnd(periodStart, settings);
-
-  return `${periodStart.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })} - ${periodEnd.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })}`;
+  return new Date(`${shift.date}T${timeValue.slice(0, 5)}:00`).getTime();
 }
 
 function getJobName(jobId, jobs) {
-  return jobs.find((job) => job.id === jobId)?.name || 'Primary Job';
+  return jobs.find((job) => job.id === jobId)?.name || '';
+}
+
+function monthKey(dateString) {
+  return (dateString || '').slice(0, 7);
+}
+
+function monthLabel(key) {
+  const date = new Date(`${key}-01T00:00:00`);
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function BreakdownItem({ tokens, label, value, color }) {
+  return (
+    <Box>
+      <Text fontSize="11px" color={tokens.textSubtle} fontWeight={500}>
+        {label}
+      </Text>
+      <Text mt={0.5} fontSize="sm" fontWeight={600} color={color || tokens.text} data-numeric>
+        {value}
+      </Text>
+    </Box>
+  );
+}
+
+function ShiftRow({ isDarkMode, shift, settings, jobs, showJob, onEdit, onDelete }) {
+  const tokens = palette(isDarkMode);
+  const [isOpen, setIsOpen] = useState(false);
+  const date = toDate(shift.date);
+  const hours = getHours(shift);
+  const sales = getSales(shift);
+  const tips = getGrossTips(shift);
+  const tipOut = getTipOut(shift, settings);
+  const netTips = getNetTips(shift, settings);
+  const basePay = getBasePay(shift, settings);
+  const takeHome = getTakeHome(shift, settings);
+  const timeLabel = formatShiftTime(shift);
+  const jobName = showJob ? getJobName(shift.jobId, jobs) : '';
+  const tipPercent = sales > 0 ? (tips / sales) * 100 : 0;
+
+  return (
+    <Box
+      bg={isOpen ? tokens.surfaceRaised : 'transparent'}
+      transition="background-color 120ms ease"
+      _hover={{ bg: tokens.surfaceRaised }}
+    >
+      <Flex
+        as="button"
+        type="button"
+        w="100%"
+        textAlign="left"
+        align="center"
+        gap={{ base: 3, md: 4 }}
+        px={{ base: 3, md: 5 }}
+        py={3}
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        data-shift-row
+      >
+        {/* Date block — the thing people scan for first. */}
+        <Flex
+          direction="column"
+          align="center"
+          justify="center"
+          w="46px"
+          h="50px"
+          flexShrink={0}
+          borderRadius={RADII.md}
+          bg={tokens.surfaceSunken}
+          border="1px solid"
+          borderColor={tokens.border}
+        >
+          <Text fontSize="10px" fontWeight={600} color={tokens.textMuted} textTransform="uppercase" letterSpacing="0.06em">
+            {date.toLocaleDateString('en-US', { weekday: 'short' })}
+          </Text>
+          <Text fontSize="19px" fontWeight={700} lineHeight="1.1" color={tokens.text} data-numeric>
+            {date.getDate()}
+          </Text>
+        </Flex>
+
+        <Box flex="1" minW={0}>
+          <HStack spacing={1.5} wrap="wrap" rowGap={1}>
+            <Text fontSize="sm" fontWeight={600} color={tokens.text} data-numeric>
+              {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </Text>
+            {jobName ? <Tag isDarkMode={isDarkMode}>{jobName}</Tag> : null}
+            {shift.floor ? <Tag isDarkMode={isDarkMode} tone="accent">{shift.floor}</Tag> : null}
+          </HStack>
+          <Text mt={1} fontSize="13px" color={tokens.textMuted} data-numeric>
+            {timeLabel ? (
+              <Box as="span" display={{ base: 'block', md: 'inline' }}>
+                {timeLabel}
+                <Box as="span" display={{ base: 'none', md: 'inline' }}>
+                  {' · '}
+                </Box>
+              </Box>
+            ) : null}
+            {formatHours(hours)} hrs · {formatCurrency(sales)} sales
+          </Text>
+          {shift.notes ? (
+            <Text mt={0.5} fontSize="12px" color={tokens.textSubtle} noOfLines={1}>
+              {shift.notes}
+            </Text>
+          ) : null}
+        </Box>
+
+        <Box textAlign="right" flexShrink={0}>
+          <Text fontSize={{ base: '17px', md: '19px' }} fontWeight={700} letterSpacing="-0.02em" color={tokens.text} data-numeric>
+            {formatCurrency(takeHome)}
+          </Text>
+          <Text fontSize="12px" color={tokens.textSubtle} data-numeric>
+            {formatCurrency(netTips)} net tips
+          </Text>
+        </Box>
+
+        <Box
+          color={tokens.textSubtle}
+          transform={isOpen ? 'rotate(180deg)' : 'none'}
+          transition="transform 160ms ease"
+          display={{ base: 'none', sm: 'block' }}
+        >
+          <ChevronDown size={16} />
+        </Box>
+      </Flex>
+
+      <Collapse in={isOpen} animateOpacity>
+        <Box px={{ base: 3, md: 5 }} pb={4} pl={{ base: 3, md: '86px' }}>
+          <SimpleGrid
+            columns={{ base: 3, md: 6 }}
+            spacing={3}
+            p={3}
+            borderRadius={RADII.md}
+            bg={tokens.surfaceSunken}
+            border="1px solid"
+            borderColor={tokens.border}
+          >
+            <BreakdownItem tokens={tokens} label="Gross tips" value={formatCurrency(tips)} />
+            <BreakdownItem tokens={tokens} label="Tip %" value={`${tipPercent.toFixed(1)}%`} />
+            <BreakdownItem tokens={tokens} label="Tip-out" value={`−${formatCurrency(tipOut)}`} color={ACCENTS.negative} />
+            <BreakdownItem tokens={tokens} label="Net tips" value={formatCurrency(netTips)} />
+            <BreakdownItem tokens={tokens} label="Base pay" value={formatCurrency(basePay)} />
+            <BreakdownItem
+              tokens={tokens}
+              label="Per hour"
+              value={hours > 0 ? formatCurrency(takeHome / hours) : '—'}
+              color={ACCENTS.positive}
+            />
+          </SimpleGrid>
+          <HStack mt={3} spacing={2}>
+            <Button size="sm" variant="outline" leftIcon={<Pencil size={14} />} onClick={() => onEdit?.(shift)}>
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              color={ACCENTS.negative}
+              leftIcon={<Trash2 size={14} />}
+              onClick={() => onDelete?.(shift.id)}
+            >
+              Delete
+            </Button>
+          </HStack>
+        </Box>
+      </Collapse>
+    </Box>
+  );
 }
 
 function ShiftsByDay({
@@ -58,145 +216,152 @@ function ShiftsByDay({
   badgeLabel,
   emptyTitle = 'No shifts logged yet.',
   emptySubtitle = 'Add a shift to get started.',
+  searchable = false,
+  groupByMonth = true,
+  footer = null,
+  filters = null,
 }) {
-  const sortedShifts = [...(shifts || [])].sort((left, right) => {
-    return getShiftSortTimestamp(right) - getShiftSortTimestamp(left);
-  });
+  const tokens = palette(isDarkMode);
+  const [query, setQuery] = useState('');
+  const showJob = jobs.length > 1;
 
-  if (!sortedShifts.length) {
-    return (
-      <Box
-        textAlign="center"
-        py={12}
-        px={6}
-        bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
-        borderRadius="3xl"
-        border="1px solid"
-        borderColor="rgba(22, 33, 43, 0.06)"
-      >
-        <Text fontSize="lg" fontWeight="semibold">
-          {emptyTitle}
-        </Text>
-        <Text mt={2} color="gray.700">
-          {emptySubtitle}
-        </Text>
-      </Box>
+  const visibleShifts = useMemo(() => {
+    const sorted = [...(shifts || [])].sort(
+      (left, right) => getShiftSortTimestamp(right) - getShiftSortTimestamp(left)
     );
-  }
+    const needle = query.trim().toLowerCase();
+    if (!needle) {
+      return sorted;
+    }
+    return sorted.filter((shift) => {
+      const date = shift.date ? toDate(shift.date) : null;
+      const haystack = [
+        shift.notes,
+        shift.floor,
+        getJobName(shift.jobId, jobs),
+        shift.date,
+        date?.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [jobs, query, shifts]);
+
+  const groups = useMemo(() => {
+    if (!groupByMonth) {
+      return [{ key: 'all', shifts: visibleShifts }];
+    }
+    const map = new Map();
+    visibleShifts.forEach((shift) => {
+      const key = monthKey(shift.date);
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key).push(shift);
+    });
+    return Array.from(map.entries()).map(([key, groupShifts]) => ({ key, shifts: groupShifts }));
+  }, [groupByMonth, visibleShifts]);
+
+  const totals = summarize(visibleShifts, settings);
+  const count = visibleShifts.length;
 
   return (
-    <Box
-      bg={isDarkMode ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.9)'}
-      borderRadius="3xl"
-      border="1px solid"
-      borderColor="rgba(22, 33, 43, 0.06)"
-      overflow="hidden"
-      boxShadow="0 18px 36px rgba(34, 46, 56, 0.06)"
-    >
-      <Flex
-        px={5}
-        py={4}
-        borderBottom="1px solid"
-        borderColor="rgba(22, 33, 43, 0.06)"
-        align="center"
-        justify="space-between"
-        gap={3}
-      >
-        <Heading size="sm" letterSpacing="-0.02em" color={isDarkMode ? 'white' : '#18222c'}>{title}</Heading>
-        <Badge bg="rgba(59, 130, 246, 0.1)" color="brand.700" borderRadius="full" px={3} py={1}>
-          {badgeLabel || `${sortedShifts.length} ${sortedShifts.length === 1 ? 'shift' : 'shifts'}`}
-        </Badge>
-      </Flex>
-
-      <Box overflowX="auto">
-        <Table size="sm">
-          <Thead bg="rgba(22, 33, 43, 0.03)">
-            <Tr>
-              <Th color="gray.400">Date</Th>
-              <Th color="gray.400">Job</Th>
-              <Th color="gray.400">Pay Period</Th>
-              <Th color="gray.400">Shift</Th>
-              <Th color="gray.400">Hours</Th>
-              <Th color="gray.400">Sales</Th>
-              <Th color="gray.400">Gross Tips</Th>
-              <Th color="gray.400">Tip-Out</Th>
-              <Th color="gray.400">Net Tips</Th>
-              <Th color="gray.400">Base Pay</Th>
-              <Th color="gray.400">Floor</Th>
-              <Th color="gray.400">Notes</Th>
-              <Th color="gray.400">Actions</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {sortedShifts.map((shift) => {
-              const hours = Number(shift.hours) || 0;
-              const sales = Number(shift.sales) || 0;
-              const tips = Number(shift.tips) || 0;
-              const tipOut = sales * ((Number(settings?.tipOutRate) || 0) / 100);
-              const netTips = tips - tipOut;
-              const basePay = Number(shift.earnings) || 0;
-
-              return (
-                <Tr key={shift.id} _hover={{ bg: 'rgba(22, 33, 43, 0.03)' }}>
-                  <Td fontWeight="semibold">{shift.date}</Td>
-                  <Td>{getJobName(shift.jobId, jobs)}</Td>
-                  <Td>
-                    <Badge
-                      borderRadius="full"
-                      px={3}
-                      py={1}
-                      bg="rgba(59, 130, 246, 0.1)"
-                      color="brand.700"
-                    >
-                        {formatPayPeriodLabel(shift.date, settings)}
-                    </Badge>
-                  </Td>
-                  <Td color={isDarkMode ? 'gray.200' : 'gray.800'}>
-                    {shift.startTime && shift.endTime
-                      ? `${shift.startTime} - ${shift.endTime}`
-                      : 'Manual entry'}
-                  </Td>
-                  <Td>{hours.toFixed(2)}</Td>
-                  <Td color="orange.200">{formatCurrency(sales)}</Td>
-                  <Td color="green.600">{formatCurrency(tips)}</Td>
-                  <Td color="red.300">{formatCurrency(tipOut)}</Td>
-                  <Td color="brand.700">{formatCurrency(netTips)}</Td>
-                  <Td color="blue.300">
-                    {basePay > 0 ? formatCurrency(basePay) : 'From hourly rate'}
-                  </Td>
-                  <Td>{shift.floor || 'Unspecified'}</Td>
-                  <Td maxW="220px">
-                    <Text color="gray.400" noOfLines={1}>
-                      {shift.notes || 'No notes'}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <HStack spacing={1}>
-                      <IconButton
-                        icon={<Edit size={14} />}
-                        size="xs"
-                        variant="ghost"
-                        colorScheme="gray"
-                        aria-label="Edit shift"
-                        onClick={() => onEdit?.(shift)}
-                      />
-                      <IconButton
-                        icon={<Trash2 size={14} />}
-                        size="xs"
-                        variant="ghost"
-                        colorScheme="red"
-                        aria-label="Delete shift"
-                        onClick={() => onDelete?.(shift.id)}
-                      />
-                    </HStack>
-                  </Td>
-                </Tr>
-              );
-            })}
-          </Tbody>
-        </Table>
+    <Panel isDarkMode={isDarkMode} padded={false} overflow="hidden">
+      <Box px={{ base: 4, md: 6 }} pt={{ base: 4, md: 5 }} pb={4}>
+        <PanelHeader
+          isDarkMode={isDarkMode}
+          title={title}
+          subtitle={
+            count
+              ? `${badgeLabel || `${count} ${count === 1 ? 'shift' : 'shifts'}`} · ${formatCurrency(
+                  totals.takeHome
+                )} take-home · ${formatCurrency(totals.perHour)}/hr`
+              : badgeLabel
+          }
+          mb={searchable || filters ? 4 : 0}
+        />
+        {filters}
+        {searchable ? (
+          <InputGroup size="sm" mt={filters ? 3 : 0}>
+            <InputLeftElement pointerEvents="none" color={tokens.textSubtle}>
+              <Search size={14} />
+            </InputLeftElement>
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search notes, floor, job, or day"
+              aria-label="Search shifts"
+            />
+          </InputGroup>
+        ) : null}
       </Box>
-    </Box>
+
+      {!count ? (
+        <Box px={{ base: 4, md: 6 }} pb={6}>
+          <EmptyState
+            isDarkMode={isDarkMode}
+            title={query ? `Nothing matches “${query}”` : emptyTitle}
+            subtitle={query ? 'Try a different word or clear the search.' : emptySubtitle}
+          />
+        </Box>
+      ) : (
+        groups.map((group) => {
+          const groupTotals = groupByMonth ? summarize(group.shifts, settings) : null;
+          return (
+            <Box key={group.key}>
+              {groupByMonth ? (
+                <Flex
+                  justify="space-between"
+                  align="baseline"
+                  gap={3}
+                  px={{ base: 4, md: 6 }}
+                  py={2}
+                  bg={tokens.surfaceSunken}
+                  borderTop="1px solid"
+                  borderBottom="1px solid"
+                  borderColor={tokens.border}
+                >
+                  <Text fontSize="12px" fontWeight={700} color={tokens.text} letterSpacing="0.02em">
+                    {monthLabel(group.key)}
+                  </Text>
+                  <Text fontSize="12px" color={tokens.textMuted} data-numeric>
+                    {groupTotals.shifts} {groupTotals.shifts === 1 ? 'shift' : 'shifts'} ·{' '}
+                    {formatHours(groupTotals.hours)} hrs ·{' '}
+                    <Box as="span" color={tokens.text} fontWeight={600}>
+                      {formatCurrency(groupTotals.takeHome)}
+                    </Box>
+                  </Text>
+                </Flex>
+              ) : (
+                <Box borderTop="1px solid" borderColor={tokens.border} />
+              )}
+              <Box>
+                {group.shifts.map((shift, index) => (
+                  <Box key={shift.id} borderTop={index ? '1px solid' : 'none'} borderColor={tokens.border}>
+                    <ShiftRow
+                      isDarkMode={isDarkMode}
+                      shift={shift}
+                      settings={settings}
+                      jobs={jobs}
+                      showJob={showJob}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          );
+        })
+      )}
+      {footer ? (
+        <Box borderTop="1px solid" borderColor={tokens.border} px={{ base: 4, md: 6 }} py={3}>
+          {footer}
+        </Box>
+      ) : null}
+    </Panel>
   );
 }
 

@@ -31,11 +31,20 @@ import { Camera } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
 import { getPeriodEnd, getPeriodStart } from './BiWeeklyHours';
 import { parseReceiptText } from '../utils/receiptParser';
+import { palette } from '../theme/tokens';
 
 const FLOORS = ['Floor 1', 'Floor 2'];
 
+// Local calendar date (YYYY-MM-DD). toISOString() is UTC, which on the West
+// Coast flips to tomorrow after 5 PM — exactly when servers log shifts.
+function toLocalDateString(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`;
+}
+
 function today() {
-  return new Date().toISOString().split('T')[0];
+  return toLocalDateString(new Date());
 }
 
 function calculateHours(startTime, endTime) {
@@ -174,7 +183,7 @@ function shiftDateBackOneDay(dateString) {
 
   const date = new Date(`${dateString}T00:00:00`);
   date.setDate(date.getDate() - 1);
-  return date.toISOString().split('T')[0];
+  return toLocalDateString(date);
 }
 
 function didShiftCrossMidnight(startTime, endTime) {
@@ -246,6 +255,7 @@ function AddShiftDialog({
   defaultJobId = '',
   existingShifts = [],
 }) {
+  const tokens = palette(isDarkMode);
   const [form, setForm] = useState(() => createEmptyForm(defaultJobId));
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
@@ -563,8 +573,8 @@ function AddShiftDialog({
               p={4}
               borderRadius="2xl"
               border="1px solid"
-              borderColor={isDraggingReceipt ? 'brand.300' : 'rgba(22, 33, 43, 0.1)'}
-              bg={isDraggingReceipt ? 'rgba(59, 130, 246, 0.08)' : 'rgba(22, 33, 43, 0.02)'}
+              borderColor={isDraggingReceipt ? 'brand.300' : tokens.borderStrong}
+              bg={isDraggingReceipt ? 'rgba(59, 130, 246, 0.08)' : tokens.surfaceSunken}
               transition="all 0.2s ease"
               onDragOver={handleReceiptDragOver}
               onDragLeave={handleReceiptDragLeave}
@@ -573,11 +583,11 @@ function AddShiftDialog({
               <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={3}>
                 <Box>
                   <Text fontWeight="semibold">Scan a shift receipt</Text>
-                  <Text fontSize="sm" color="gray.400" mt={1}>
+                  <Text fontSize="sm" color={tokens.textMuted} mt={1}>
                     Take a new photo, upload one from your phone, or drag a receipt image here and
                     I&apos;ll try to pull in the date, time, sales, and credit tips for you.
                   </Text>
-                  <Text fontSize="xs" color="gray.500" mt={2}>
+                  <Text fontSize="xs" color={tokens.textMuted} mt={2}>
                     Receipt scans assume a `5:00 PM` start time and use the top receipt time as
                     your clock-out time.
                   </Text>
@@ -603,7 +613,7 @@ function AddShiftDialog({
                     onClick={() => fileInputRef.current?.click()}
                     isDisabled={isScanning}
                     variant="outline"
-                    borderColor="rgba(22, 33, 43, 0.12)"
+                    borderColor={tokens.borderStrong}
                   >
                     Upload Photo(s)
                   </Button>
@@ -612,7 +622,7 @@ function AddShiftDialog({
 
               {isScanning ? (
                 <Box mt={4}>
-                  <Text fontSize="sm" color="gray.300" mb={2}>
+                  <Text fontSize="sm" color={tokens.textMuted} mb={2}>
                     {scanStatus || 'Reading receipt...'}
                   </Text>
                   <Progress value={scanProgress} size="sm" rounded="full" colorScheme="green" />
@@ -620,14 +630,14 @@ function AddShiftDialog({
               ) : null}
 
               {scanError ? (
-                <Alert status="warning" mt={4} borderRadius="xl" bg="orange.900" color="orange.100">
+                <Alert status="warning" mt={4} borderRadius="xl" bg={isDarkMode ? "orange.900" : "orange.50"} color={isDarkMode ? "orange.100" : "orange.800"}>
                   <AlertIcon />
                   <AlertDescription>{scanError}</AlertDescription>
                 </Alert>
               ) : null}
 
               {scanSummary.length ? (
-                <Alert status="success" mt={4} borderRadius="xl" bg="green.900" color="green.100">
+                <Alert status="success" mt={4} borderRadius="xl" bg={isDarkMode ? "green.900" : "green.50"} color={isDarkMode ? "green.100" : "green.800"}>
                   <AlertIcon />
                   <Box>
                     <AlertTitle mb={1}>Receipt scanned</AlertTitle>
@@ -643,7 +653,7 @@ function AddShiftDialog({
                   <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }}>
                     <Box>
                       <Text fontWeight="semibold">Batch review</Text>
-                      <Text fontSize="sm" color="gray.400">
+                      <Text fontSize="sm" color={tokens.textMuted}>
                         Review the scanned receipts below, then add them all at once.
                       </Text>
                     </Box>
@@ -657,9 +667,9 @@ function AddShiftDialog({
                       key={draft.id}
                       p={3}
                       borderRadius="2xl"
-                      bg="rgba(22, 33, 43, 0.03)"
+                      bg={tokens.surfaceSunken}
                       border="1px solid"
-                      borderColor="rgba(22, 33, 43, 0.08)"
+                      borderColor={tokens.border}
                     >
                       <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={3}>
                         <Box>
@@ -679,12 +689,12 @@ function AddShiftDialog({
                               <Badge colorScheme="yellow">Needs review</Badge>
                             ) : null}
                           </HStack>
-                          <Text mt={2} fontSize="sm" color="gray.300">
+                          <Text mt={2} fontSize="sm" color={tokens.textMuted}>
                             Sales {formatCurrency(Number(draft.shift.sales) || 0)} • Tips{' '}
                             {formatCurrency(Number(draft.shift.tips) || 0)}
                           </Text>
                           {draft.shift.issues?.length ? (
-                            <Text mt={1} fontSize="xs" color="yellow.200">
+                            <Text mt={1} fontSize="xs" color={isDarkMode ? "yellow.200" : "orange.600"}>
                               {draft.shift.issues.join(' • ')}
                             </Text>
                           ) : null}
@@ -731,7 +741,7 @@ function AddShiftDialog({
                 value={form.date}
                 onChange={(event) => updateField('date', event.target.value)}
               />
-              <FormHelperText color="gray.400">
+              <FormHelperText color={tokens.textMuted}>
                 This shift is currently assigned to pay period {activePayPeriodLabel || 'not set'}.
               </FormHelperText>
               <HStack mt={3} spacing={2} flexWrap="wrap">
@@ -811,7 +821,7 @@ function AddShiftDialog({
               >
                 <NumberInputField placeholder="0.00" />
               </NumberInput>
-              <FormHelperText color="gray.400">
+              <FormHelperText color={tokens.textMuted}>
                 Tip-out is automatically calculated as {settings?.tipOutRate || 0}% of sales.
                 Estimated deduction: {formatCurrency(estimatedTipOut)}
               </FormHelperText>
@@ -827,7 +837,7 @@ function AddShiftDialog({
               >
                 <NumberInputField placeholder="Leave blank to use hourly rate" />
               </NumberInput>
-              <FormHelperText color="gray.400">
+              <FormHelperText color={tokens.textMuted}>
                 Suggested from settings: {formatCurrency(suggestedBasePay)}
               </FormHelperText>
             </FormControl>

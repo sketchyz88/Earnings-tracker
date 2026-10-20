@@ -100,7 +100,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
               >
                 <NumberInputField />
               </NumberInput>
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color={isDarkMode ? "gray.400" : "gray.600"}>
                 Used to estimate base pay.
               </Text>
             </FormControl>
@@ -120,7 +120,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
               >
                 <NumberInputField />
               </NumberInput>
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color={isDarkMode ? "gray.400" : "gray.600"}>
                 Tip-out is deducted from tips using this percentage of sales.
               </Text>
             </FormControl>
@@ -140,7 +140,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
               >
                 <NumberInputField />
               </NumberInput>
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color={isDarkMode ? "gray.400" : "gray.600"}>
                 Track your goal after tip-out is deducted.
               </Text>
             </FormControl>
@@ -160,7 +160,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
               >
                 <NumberInputField />
               </NumberInput>
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color={isDarkMode ? "gray.400" : "gray.600"}>
                 Your target hours per pay period.
               </Text>
             </FormControl>
@@ -217,7 +217,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
                   Add Job
                 </Button>
               </VStack>
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color={isDarkMode ? "gray.400" : "gray.600"}>
                 Use jobs to keep multiple serving workplaces in one account.
               </Text>
             </FormControl>
@@ -237,7 +237,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
               >
                 <NumberInputField />
               </NumberInput>
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color={isDarkMode ? "gray.400" : "gray.600"}>
                 The app uses this many days in each repeating pay period.
               </Text>
             </FormControl>
@@ -254,7 +254,7 @@ function SettingsDialog({ isDarkMode = false, isOpen, onClose, onSave, settings 
                   }))
                 }
               />
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color={isDarkMode ? "gray.400" : "gray.600"}>
                 This date becomes day one for the repeating pay-period cycle.
               </Text>
             </FormControl>

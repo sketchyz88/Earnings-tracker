@@ -86,7 +86,7 @@ function AuthScreen({ isDarkMode = false, isSubmitting, authError, authMessage, 
             bg={mode === 'signIn' ? 'brand.600' : 'transparent'}
             color={mode === 'signIn' ? 'white' : 'gray.900'}
             variant={mode === 'signIn' ? 'solid' : 'outline'}
-            borderColor="rgba(22, 33, 43, 0.12)"
+            borderColor={isDarkMode ? "rgba(148, 163, 184, 0.24)" : "rgba(22, 33, 43, 0.12)"}
             _hover={{
               bg: mode === 'signIn' ? 'brand.700' : 'blackAlpha.50',
             }}
@@ -99,7 +99,7 @@ function AuthScreen({ isDarkMode = false, isSubmitting, authError, authMessage, 
             bg={mode === 'signUp' ? 'brand.600' : 'transparent'}
             color={mode === 'signUp' ? 'white' : 'gray.900'}
             variant={mode === 'signUp' ? 'solid' : 'outline'}
-            borderColor="rgba(22, 33, 43, 0.12)"
+            borderColor={isDarkMode ? "rgba(148, 163, 184, 0.24)" : "rgba(22, 33, 43, 0.12)"}
             _hover={{
               bg: mode === 'signUp' ? 'brand.700' : 'blackAlpha.50',
             }}
@@ -117,7 +117,7 @@ function AuthScreen({ isDarkMode = false, isSubmitting, authError, authMessage, 
         ) : null}
 
         {authMessage ? (
-          <Alert status="success" mt={5} borderRadius="2xl" bg="green.900" color="green.100">
+          <Alert status="success" mt={5} borderRadius="2xl" bg={isDarkMode ? "green.900" : "green.50"} color={isDarkMode ? "green.100" : "green.800"}>
             <AlertIcon />
             <Box>
               <AlertTitle mb={1}>Account step complete</AlertTitle>
@@ -135,7 +135,7 @@ function AuthScreen({ isDarkMode = false, isSubmitting, authError, authMessage, 
                 onChange={(event) => updateField('displayName', event.target.value)}
                 placeholder="Dylan"
               />
-              <FormHelperText color="gray.500">
+              <FormHelperText color={isDarkMode ? "gray.400" : "gray.600"}>
                 This is the profile name shown inside the app.
               </FormHelperText>
             </FormControl>

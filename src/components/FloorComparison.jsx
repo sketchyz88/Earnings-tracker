@@ -8,7 +8,7 @@
 import { useMemo, useState } from 'react';
 import { Box, Button, Flex, SimpleGrid, Text } from '@chakra-ui/react';
 import { formatCurrency, formatHours } from '../utils/format';
-import { WEEKDAYS, summarize, summarizeTables, toDate } from '../utils/shiftMath';
+import { WEEKDAYS, analyzeSections, summarize, toDate } from '../utils/shiftMath';
 import { ACCENTS, RADII, palette } from '../theme/tokens';
 import { EmptyState, Label, Panel, PanelHeader, Segmented } from './ui';
 
@@ -106,129 +106,154 @@ function Breakdown({ isDarkMode, title, subtitle, rows, emptyText }) {
   );
 }
 
-const TABLE_SORTS = [
-  { value: 'avgTip', label: 'Avg tip' },
-  { value: 'tipPercent', label: 'Tip %' },
-  { value: 'tips', label: 'Total' },
-];
-const TABLE_PAGE = 10;
+const PAGE = 8;
 
-function TableBreakdown({ isDarkMode, rows }) {
+function DeltaRow({ isDarkMode, rank, row, maxPerHour, isTop, label }) {
   const tokens = palette(isDarkMode);
-  const [sortBy, setSortBy] = useState('avgTip');
-  const [showAll, setShowAll] = useState(false);
+  const width = maxPerHour > 0 ? Math.max(4, (row.stats.perHour / maxPerHour) * 100) : 0;
+  const isEarly = row.stats.shifts < 3;
+  const deltaColor = row.delta > 0.005 ? ACCENTS.positive : row.delta < -0.005 ? ACCENTS.negative : tokens.textMuted;
 
-  const sorted = [...rows].sort(
-    (left, right) => right[sortBy] - left[sortBy] || right.checks - left.checks
+  return (
+    <Box py={3} borderTop={rank > 1 ? '1px solid' : 'none'} borderColor={tokens.border}>
+      <Flex justify="space-between" align="baseline" gap={3}>
+        <Flex align="baseline" gap={2} minW={0}>
+          <Text fontSize="12px" color={tokens.textSubtle} w="16px" flexShrink={0} data-numeric>
+            {rank}
+          </Text>
+          <Box minW={0}>
+            <Text fontSize="sm" fontWeight={650} color={tokens.text} noOfLines={1}>
+              {label}
+              {isTop ? (
+                <Box as="span" ml={2} fontSize="10px" fontWeight={700} textTransform="uppercase" letterSpacing="0.06em" color={ACCENTS.positive}>
+                  Best
+                </Box>
+              ) : null}
+            </Text>
+            <Text fontSize="12px" color={tokens.textSubtle} data-numeric>
+              {row.stats.shifts} {row.stats.shifts === 1 ? 'shift' : 'shifts'} · {formatCurrency(row.stats.perShift)}/shift ·{' '}
+              {row.stats.tipPercent.toFixed(1)}% tips
+            </Text>
+          </Box>
+        </Flex>
+        <Box textAlign="right" flexShrink={0}>
+          <Text fontSize="16px" fontWeight={700} color={tokens.text} data-numeric>
+            {formatCurrency(row.stats.perHour)}
+            <Box as="span" fontSize="12px" fontWeight={500} color={tokens.textSubtle}>
+              /hr
+            </Box>
+          </Text>
+          <Text fontSize="12px" fontWeight={600} color={deltaColor} data-numeric>
+            {row.delta >= 0 ? '+' : '−'}
+            {formatCurrency(Math.abs(row.delta))}/hr vs avg
+          </Text>
+        </Box>
+      </Flex>
+      <Box mt={2} ml="24px" h="6px" borderRadius="full" bg={tokens.surfaceSunken} overflow="hidden">
+        <Box
+          h="100%"
+          w={`${width}%`}
+          borderRadius="full"
+          bg={isTop ? ACCENTS.positive : ACCENTS.primary}
+          opacity={isEarly ? 0.35 : isTop ? 1 : 0.75}
+        />
+      </Box>
+    </Box>
   );
-  const visible = showAll ? sorted : sorted.slice(0, TABLE_PAGE);
-  const maxValue = Math.max(0, ...sorted.map((row) => row[sortBy]));
-  const totalChecks = rows.reduce((sum, row) => sum + row.checks, 0);
-  const overallAvg = totalChecks ? rows.reduce((sum, row) => sum + row.tips, 0) / totalChecks : 0;
-  // Only call out a "best table" once it has enough checks to mean something.
-  const reliable = [...rows].filter((row) => row.checks >= 3).sort((a, b) => b.avgTip - a.avgTip);
-  const best = reliable[0];
+}
 
-  function display(row) {
-    if (sortBy === 'tipPercent') return `${row.tipPercent.toFixed(1)}%`;
-    if (sortBy === 'tips') return formatCurrency(row.tips);
-    return formatCurrency(row.avgTip);
-  }
+function RankedList({ isDarkMode, title, subtitle, rows, labelFor }) {
+  const tokens = palette(isDarkMode);
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? rows : rows.slice(0, PAGE);
+  const maxPerHour = Math.max(0, ...rows.map((row) => row.stats.perHour));
+  const topIndex = rows.findIndex((row) => row.stats.shifts >= 3);
 
   return (
     <Panel isDarkMode={isDarkMode}>
-      <PanelHeader
-        isDarkMode={isDarkMode}
-        title="By table"
-        subtitle={
-          rows.length
-            ? `${rows.length} tables · ${totalChecks} checks · ${formatCurrency(overallAvg)} average tip per check`
-            : 'Add tables when you log a shift to see which ones tip best'
-        }
-        right={
-          rows.length ? (
-            <Segmented isDarkMode={isDarkMode} size="xs" options={TABLE_SORTS} value={sortBy} onChange={setSortBy} />
-          ) : null
-        }
-        mb={rows.length ? 2 : 4}
-      />
+      <PanelHeader isDarkMode={isDarkMode} title={title} subtitle={subtitle} mb={2} />
+      {visible.map((row, index) => (
+        <DeltaRow
+          key={row.key}
+          isDarkMode={isDarkMode}
+          rank={index + 1}
+          row={row}
+          maxPerHour={maxPerHour}
+          isTop={index === topIndex && rows.length > 1}
+          label={labelFor(row)}
+        />
+      ))}
+      {rows.length > PAGE ? (
+        <Button mt={1} size="sm" variant="ghost" width="100%" color={tokens.textMuted} onClick={() => setShowAll((value) => !value)}>
+          {showAll ? 'Show fewer' : `Show all ${rows.length}`}
+        </Button>
+      ) : null}
+    </Panel>
+  );
+}
 
-      {!rows.length ? (
+function SectionInsights({ isDarkMode, analysis }) {
+  const tokens = palette(isDarkMode);
+  const { baseline, sections, tables, sectionedShifts } = analysis;
+
+  if (!sectionedShifts) {
+    return (
+      <Panel isDarkMode={isDarkMode}>
+        <PanelHeader isDarkMode={isDarkMode} title="Tables & sections" mb={4} />
         <EmptyState
           isDarkMode={isDarkMode}
-          title="No tables logged in this range"
-          subtitle="Open Add shift and use the Tables section to log each table's check and tip. Your rankings show up here."
+          title="No sections logged in this range"
+          subtitle="When you add a shift, type the tables you were assigned (like 39A, 37, 36) under “Your section.” After a few shifts this shows which tables and sections earn you the most."
         />
-      ) : (
-        <>
-          {best && overallAvg > 0 && best.avgTip > overallAvg ? (
-            <Text mb={2} fontSize="sm" color={tokens.textMuted} lineHeight="1.6" data-numeric>
-              <Box as="span" color={tokens.text} fontWeight={600}>
-                Table {best.table}
-              </Box>{' '}
-              averages {formatCurrency(best.avgTip)} per check, about{' '}
-              {Math.round(((best.avgTip - overallAvg) / overallAvg) * 100)}% more than your typical table.
-            </Text>
-          ) : null}
-          <SimpleGrid columns={{ base: 1, lg: 2 }} spacingX={8}>
-            {visible.map((row, index) => {
-              const width = maxValue > 0 ? Math.max(4, (row[sortBy] / maxValue) * 100) : 0;
-              const isTop = index === 0 && sorted.length > 1;
-              return (
-                <Box key={row.table} py={3} borderTop="1px solid" borderColor={tokens.border}>
-                  <Flex justify="space-between" align="baseline" gap={3}>
-                    <Box minW={0}>
-                      <Text fontSize="sm" fontWeight={650} color={tokens.text}>
-                        Table {row.table}
-                        {isTop ? (
-                          <Box
-                            as="span"
-                            ml={2}
-                            fontSize="10px"
-                            fontWeight={700}
-                            textTransform="uppercase"
-                            letterSpacing="0.06em"
-                            color={ACCENTS.positive}
-                          >
-                            Top
-                          </Box>
-                        ) : null}
-                      </Text>
-                      <Text fontSize="12px" color={tokens.textSubtle} data-numeric>
-                        {row.checks} {row.checks === 1 ? 'check' : 'checks'} · {formatCurrency(row.avgCheck)} avg check ·{' '}
-                        {row.tipPercent.toFixed(1)}% · {formatCurrency(row.tips)} total
-                      </Text>
-                    </Box>
-                    <Text fontSize="16px" fontWeight={700} color={tokens.text} flexShrink={0} data-numeric>
-                      {display(row)}
-                    </Text>
-                  </Flex>
-                  <Box mt={2} h="6px" borderRadius="full" bg={tokens.surfaceSunken} overflow="hidden">
-                    <Box
-                      h="100%"
-                      w={`${width}%`}
-                      borderRadius="full"
-                      bg={isTop ? ACCENTS.positive : ACCENTS.primary}
-                      opacity={row.checks < 3 ? 0.4 : isTop ? 1 : 0.75}
-                    />
-                  </Box>
-                </Box>
-              );
-            })}
-          </SimpleGrid>
-          <Flex mt={2} justify="space-between" align="center" gap={3} wrap="wrap">
-            <Text fontSize="12px" color={tokens.textSubtle}>
-              Faded bars have fewer than 3 checks, so treat them as early reads.
-            </Text>
-            {sorted.length > TABLE_PAGE ? (
-              <Button size="sm" variant="ghost" color={tokens.textMuted} onClick={() => setShowAll((value) => !value)}>
-                {showAll ? 'Show fewer' : `Show all ${sorted.length} tables`}
-              </Button>
-            ) : null}
-          </Flex>
-        </>
-      )}
-    </Panel>
+      </Panel>
+    );
+  }
+
+  const reliable = tables.filter((row) => row.stats.shifts >= 3);
+  const best = reliable[0];
+
+  return (
+    <Box display="grid" gap={4}>
+      <Panel isDarkMode={isDarkMode}>
+        <Text fontSize="lg" fontWeight={700} letterSpacing="-0.02em" color={tokens.text}>
+          Tables &amp; sections
+        </Text>
+        <Text mt={1} fontSize="13px" color={tokens.textMuted} lineHeight="1.6" data-numeric>
+          Based on {sectionedShifts} {sectionedShifts === 1 ? 'shift' : 'shifts'} with a section logged, where you
+          averaged {formatCurrency(baseline.perHour)}/hr. Each table is scored by how your whole shift went when it was in
+          your section.
+        </Text>
+        {best && best.delta > 0 ? (
+          <Text mt={3} fontSize="sm" color={tokens.textMuted} lineHeight="1.6" data-numeric>
+            Nights with{' '}
+            <Box as="span" color={tokens.text} fontWeight={600}>
+              table {best.name}
+            </Box>{' '}
+            pay you {formatCurrency(best.delta)}/hr more than your average. That&rsquo;s the one to ask for.
+          </Text>
+        ) : (
+          <Text mt={3} fontSize="12px" color={tokens.textSubtle}>
+            Faded bars have fewer than 3 shifts. Rankings firm up as you log more sections.
+          </Text>
+        )}
+      </Panel>
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4} alignItems="start">
+        <RankedList
+          isDarkMode={isDarkMode}
+          title="By table"
+          subtitle="Your average when this table was in your section"
+          rows={tables}
+          labelFor={(row) => `Table ${row.name}`}
+        />
+        <RankedList
+          isDarkMode={isDarkMode}
+          title="By section"
+          subtitle="The exact set of tables you had. Sections seen 3+ times rank first"
+          rows={sections}
+          labelFor={(row) => row.name}
+        />
+      </SimpleGrid>
+    </Box>
   );
 }
 
@@ -275,7 +300,7 @@ function FloorComparison({ isDarkMode = true, shifts, settings }) {
       .sort((left, right) => right.stats.perHour - left.stats.perHour);
   }, [rangeShifts, settings]);
 
-  const tableRows = useMemo(() => summarizeTables(rangeShifts), [rangeShifts]);
+  const sectionAnalysis = useMemo(() => analyzeSections(rangeShifts, settings), [rangeShifts, settings]);
 
   const bestDay = weekdayRows[0];
   const worstDay = weekdayRows[weekdayRows.length - 1];
@@ -333,6 +358,8 @@ function FloorComparison({ isDarkMode = true, shifts, settings }) {
         ) : null}
       </Panel>
 
+      {overall.shifts ? <SectionInsights isDarkMode={isDarkMode} analysis={sectionAnalysis} /> : null}
+
       {!overall.shifts ? (
         <EmptyState
           isDarkMode={isDarkMode}
@@ -358,7 +385,6 @@ function FloorComparison({ isDarkMode = true, shifts, settings }) {
         </SimpleGrid>
       )}
 
-      <TableBreakdown isDarkMode={isDarkMode} rows={tableRows} />
     </Box>
   );
 }

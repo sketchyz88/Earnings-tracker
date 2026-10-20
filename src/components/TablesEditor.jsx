@@ -1,160 +1,175 @@
 /**
- * Quick entry for the tables you served on a shift: table number, check total,
- * and tip. Built for a phone at the end of a night — big inputs, numeric
- * keyboards, and Enter on the last tip jumps to a fresh row.
+ * "Your section": the tables you were assigned on a shift (e.g. 39A, 37, 36).
+ *
+ * Servers usually know the shift's total tips, not each table's, so this only
+ * asks for table numbers. Insights then compares shifts by which tables were
+ * in the section. Type a table and press Enter, space, or comma to add it, or
+ * tap a recent section to reuse it.
  */
 import { useState } from 'react';
-import { Box, Button, Flex, Grid, IconButton, Input, Text } from '@chakra-ui/react';
-import { Plus, X } from 'lucide-react';
-import { formatCurrency } from '../utils/format';
+import { Box, Button, Flex, IconButton, Input, Text } from '@chakra-ui/react';
+import { X } from 'lucide-react';
+import { normalizeTableName } from '../utils/shiftMath';
 import { ACCENTS, RADII, palette } from '../theme/tokens';
-
-function newRow() {
-  return { id: crypto.randomUUID(), table: '', sales: '', tip: '' };
-}
 
 export function rowsFromShift(shift) {
   if (!Array.isArray(shift?.tables)) {
     return [];
   }
-  return shift.tables.map((entry) => ({
-    id: entry.id || crypto.randomUUID(),
-    table: entry.table ?? '',
-    sales: entry.sales ? String(entry.sales) : '',
-    tip: entry.tip ? String(entry.tip) : '',
-  }));
+  return shift.tables
+    .map((entry) => ({
+      id: entry.id || crypto.randomUUID(),
+      table: normalizeTableName(entry.table),
+      sales: Number(entry.sales) || 0,
+      tip: Number(entry.tip) || 0,
+    }))
+    .filter((entry) => entry.table);
 }
 
-/** Rows ready to save: drop empty ones, store numbers as numbers. */
+/** Rows ready to save: one entry per table, numbers kept if an old entry had them. */
 export function rowsForSave(rows) {
+  const seen = new Set();
   return (rows || [])
-    .filter((row) => String(row.table).trim())
+    .map((row) => ({ ...row, table: normalizeTableName(row.table) }))
+    .filter((row) => row.table && !seen.has(row.table) && seen.add(row.table))
     .map((row) => ({
-      id: row.id,
-      table: String(row.table).trim(),
+      id: row.id || crypto.randomUUID(),
+      table: row.table,
       sales: Number(row.sales) || 0,
       tip: Number(row.tip) || 0,
     }));
 }
 
-function TablesEditor({ isDarkMode, rows, onChange, onUseTotals }) {
+/** Most recent distinct sections from saved shifts, newest first. */
+export function getRecentSections(shifts, limit = 4) {
+  const seen = new Set();
+  const sections = [];
+  [...(shifts || [])]
+    .filter((shift) => Array.isArray(shift.tables) && shift.tables.length)
+    .sort((left, right) => (right.date || '').localeCompare(left.date || ''))
+    .forEach((shift) => {
+      const names = rowsForSave(shift.tables)
+        .map((row) => row.table)
+        .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+      const key = [...names].sort().join('|');
+      if (names.length && !seen.has(key) && sections.length < limit) {
+        seen.add(key);
+        sections.push(names);
+      }
+    });
+  return sections;
+}
+
+function TablesEditor({ isDarkMode, rows, onChange, recentSections = [] }) {
   const tokens = palette(isDarkMode);
-  const [focusId, setFocusId] = useState(null);
+  const [draft, setDraft] = useState('');
+  const tables = rowsForSave(rows);
 
-  const filled = rowsForSave(rows);
-  const totalTips = filled.reduce((sum, row) => sum + row.tip, 0);
-  const totalSales = filled.reduce((sum, row) => sum + row.sales, 0);
-
-  function update(id, field, value) {
-    onChange(rows.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
+  function addTables(text) {
+    const names = String(text)
+      .split(/[\s,]+/)
+      .map(normalizeTableName)
+      .filter(Boolean);
+    if (!names.length) {
+      return;
+    }
+    onChange(rowsForSave([...tables, ...names.map((table) => ({ id: crypto.randomUUID(), table }))]));
+    setDraft('');
   }
 
-  function addRow() {
-    const row = newRow();
-    setFocusId(row.id);
-    onChange([...rows, row]);
+  function removeTable(table) {
+    onChange(tables.filter((row) => row.table !== table));
   }
-
-  function removeRow(id) {
-    onChange(rows.filter((row) => row.id !== id));
-  }
-
-  const inputProps = {
-    size: 'sm',
-    type: 'text',
-    inputMode: 'decimal',
-    autoComplete: 'off',
-  };
 
   return (
-    <Box
-      p={3}
-      borderRadius={RADII.lg}
-      border="1px solid"
-      borderColor={tokens.border}
-      bg={tokens.surfaceSunken}
-    >
-      {rows.length ? (
-        <Grid templateColumns="minmax(0,0.8fr) minmax(0,1fr) minmax(0,1fr) 28px" gap={2} alignItems="center">
-          {['Table #', 'Check $', 'Tip $', ''].map((label) => (
-            <Text key={label || 'x'} fontSize="11px" fontWeight={600} color={tokens.textMuted}>
-              {label}
-            </Text>
-          ))}
-          {rows.map((row, index) => (
-            <Box key={row.id} display="contents">
-              <Input
-                {...inputProps}
-                inputMode="text"
-                autoCapitalize="characters"
-                placeholder="12"
-                value={row.table}
-                autoFocus={row.id === focusId}
-                onChange={(event) => update(row.id, 'table', event.target.value)}
-                aria-label={`Table number, row ${index + 1}`}
-              />
-              <Input
-                {...inputProps}
-                placeholder="0.00"
-                value={row.sales}
-                onChange={(event) => update(row.id, 'sales', event.target.value.replace(/[^0-9.]/g, ''))}
-                aria-label={`Check total, row ${index + 1}`}
-              />
-              <Input
-                {...inputProps}
-                placeholder="0.00"
-                value={row.tip}
-                onChange={(event) => update(row.id, 'tip', event.target.value.replace(/[^0-9.]/g, ''))}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && index === rows.length - 1) {
-                    event.preventDefault();
-                    addRow();
-                  }
-                }}
-                aria-label={`Tip, row ${index + 1}`}
-              />
-              <IconButton
-                icon={<X size={14} />}
-                size="xs"
-                variant="ghost"
-                color={tokens.textSubtle}
-                aria-label={`Remove row ${index + 1}`}
-                onClick={() => removeRow(row.id)}
-              />
-            </Box>
-          ))}
-        </Grid>
-      ) : (
-        <Text fontSize="13px" color={tokens.textMuted}>
-          Optional. Log each table&rsquo;s check and tip, and Insights will show which tables tip you best.
-        </Text>
-      )}
+    <Box p={3} borderRadius={RADII.lg} border="1px solid" borderColor={tokens.border} bg={tokens.surfaceSunken}>
+      <Flex gap={2} wrap="wrap" align="center">
+        {tables.map((row) => (
+          <Flex
+            key={row.table}
+            align="center"
+            gap={1}
+            pl={3}
+            pr={1}
+            h="32px"
+            borderRadius={RADII.pill}
+            bg={ACCENTS.primaryMuted}
+            color={ACCENTS.primary}
+            fontWeight={650}
+            fontSize="14px"
+          >
+            {row.table}
+            <IconButton
+              icon={<X size={13} />}
+              size="xs"
+              variant="ghost"
+              color={ACCENTS.primary}
+              borderRadius="full"
+              minW="22px"
+              h="22px"
+              aria-label={`Remove table ${row.table}`}
+              onClick={() => removeTable(row.table)}
+            />
+          </Flex>
+        ))}
+        <Input
+          flex="1"
+          minW="120px"
+          size="sm"
+          h="32px"
+          value={draft}
+          placeholder={tables.length ? 'Add another' : 'Type a table, e.g. 39A'}
+          autoCapitalize="characters"
+          autoComplete="off"
+          enterKeyHint="done"
+          aria-label="Add a table to your section"
+          onChange={(event) => {
+            const value = event.target.value;
+            // A space or comma finishes a table, so "39A 37 36" works in one go.
+            if (/[\s,]$/.test(value)) {
+              addTables(value);
+            } else {
+              setDraft(value);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              addTables(draft);
+            } else if (event.key === 'Backspace' && !draft && tables.length) {
+              removeTable(tables[tables.length - 1].table);
+            }
+          }}
+          onBlur={() => addTables(draft)}
+        />
+      </Flex>
 
-      <Flex mt={3} justify="space-between" align="center" gap={2} wrap="wrap">
-        <Button size="sm" variant="ghost" color={ACCENTS.primary} leftIcon={<Plus size={14} />} onClick={addRow}>
-          Add table
-        </Button>
-        {filled.length ? (
-          <Flex align="center" gap={2} wrap="wrap">
-            <Text fontSize="12px" color={tokens.textMuted} data-numeric>
-              {filled.length} {filled.length === 1 ? 'table' : 'tables'} · {formatCurrency(totalSales)} ·{' '}
-              <Box as="span" color={tokens.text} fontWeight={600}>
-                {formatCurrency(totalTips)} tips
-              </Box>
-            </Text>
-            {onUseTotals ? (
+      {recentSections.length ? (
+        <Box mt={3}>
+          <Text fontSize="11px" fontWeight={600} color={tokens.textMuted} mb={1.5}>
+            Recent sections
+          </Text>
+          <Flex gap={2} wrap="wrap">
+            {recentSections.map((names) => (
               <Button
+                key={names.join('|')}
                 size="xs"
                 variant="outline"
-                onClick={() => onUseTotals({ tips: totalTips, sales: totalSales })}
-                title="Copy these totals into the shift's Tips and Sales"
+                borderColor={tokens.borderStrong}
+                color={tokens.text}
+                fontWeight={500}
+                onClick={() => onChange(rowsForSave(names.map((table) => ({ id: crypto.randomUUID(), table }))))}
               >
-                Use as shift totals
+                {names.join(' · ')}
               </Button>
-            ) : null}
+            ))}
           </Flex>
-        ) : null}
-      </Flex>
+        </Box>
+      ) : (
+        <Text mt={2} fontSize="12px" color={tokens.textMuted}>
+          Optional. Add the tables you were assigned and Insights will show which ones earn you the most.
+        </Text>
+      )}
     </Box>
   );
 }

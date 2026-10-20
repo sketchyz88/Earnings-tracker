@@ -117,36 +117,69 @@ export function getTables(shift) {
     .filter((entry) => entry.table);
 }
 
-/** Per-table totals across many shifts, best average tip first. */
-export function summarizeTables(shifts) {
-  const map = new Map();
-  (shifts || []).forEach((shift) => {
-    getTables(shift).forEach((entry) => {
-      const current = map.get(entry.table) || {
-        table: entry.table,
-        checks: 0,
-        tips: 0,
-        sales: 0,
-        bestTip: 0,
-        lastDate: '',
-      };
-      current.checks += 1;
-      current.tips += entry.tip;
-      current.sales += entry.sales;
-      current.bestTip = Math.max(current.bestTip, entry.tip);
-      if (shift.date && shift.date > current.lastDate) {
-        current.lastDate = shift.date;
+function naturalCompare(left, right) {
+  return left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+/** Table names in a shift's section, in natural order (36, 37, 39A). */
+export function getSectionTables(shift) {
+  return [...new Set(getTables(shift).map((entry) => entry.table))].sort(naturalCompare);
+}
+
+export function formatSection(names) {
+  return names.join(' · ');
+}
+
+/**
+ * Compare sections and tables using shift totals.
+ *
+ * Servers know the shift's tips, not each table's, so a table's number is the
+ * average of every shift where it was in your section. The baseline is the
+ * same average across all shifts that had a section logged, so "+$6/hr"
+ * means "nights with this table beat your typical sectioned night".
+ */
+export function analyzeSections(shifts, settings) {
+  const sectioned = (shifts || []).filter((shift) => getSectionTables(shift).length);
+  const baseline = summarize(sectioned, settings);
+
+  const sectionMap = new Map();
+  const tableMap = new Map();
+  sectioned.forEach((shift) => {
+    const names = getSectionTables(shift);
+    const key = names.join('|');
+    if (!sectionMap.has(key)) {
+      sectionMap.set(key, { names, shifts: [] });
+    }
+    sectionMap.get(key).shifts.push(shift);
+    names.forEach((name) => {
+      if (!tableMap.has(name)) {
+        tableMap.set(name, []);
       }
-      map.set(entry.table, current);
+      tableMap.get(name).push(shift);
     });
   });
 
-  return Array.from(map.values())
-    .map((row) => ({
-      ...row,
-      avgTip: row.checks ? row.tips / row.checks : 0,
-      avgCheck: row.checks ? row.sales / row.checks : 0,
-      tipPercent: row.sales > 0 ? (row.tips / row.sales) * 100 : 0,
-    }))
-    .sort((left, right) => right.avgTip - left.avgTip || right.checks - left.checks);
+  // Anything seen on 3+ shifts ranks above early reads, so one lucky night
+  // can't top the list.
+  const tier = (row) => (row.stats.shifts >= 3 ? 1 : 0);
+  const byPerHour = (left, right) =>
+    tier(right) - tier(left) ||
+    right.stats.perHour - left.stats.perHour ||
+    right.stats.shifts - left.stats.shifts;
+
+  const sections = Array.from(sectionMap.values())
+    .map(({ names, shifts: sectionShifts }) => {
+      const stats = summarize(sectionShifts, settings);
+      return { key: names.join('|'), name: formatSection(names), names, stats, delta: stats.perHour - baseline.perHour };
+    })
+    .sort(byPerHour);
+
+  const tables = Array.from(tableMap.entries())
+    .map(([name, tableShifts]) => {
+      const stats = summarize(tableShifts, settings);
+      return { key: name, name, stats, delta: stats.perHour - baseline.perHour };
+    })
+    .sort(byPerHour);
+
+  return { baseline, sections, tables, sectionedShifts: sectioned.length };
 }

@@ -20,6 +20,8 @@ import {
   getHours,
   getNetTips,
   getSales,
+  formatSection,
+  getSectionTables,
   getTables,
   getTakeHome,
   getTipOut,
@@ -78,6 +80,9 @@ function ShiftRow({ isDarkMode, shift, settings, jobs, showJob, onEdit, onDelete
   const jobName = showJob ? getJobName(shift.jobId, jobs) : '';
   const tipPercent = sales > 0 ? (tips / sales) * 100 : 0;
   const tables = getTables(shift);
+  const section = getSectionTables(shift);
+  // Older entries may carry a tip per table; only show that block when they do.
+  const tablesWithTips = tables.filter((entry) => entry.tip > 0);
 
   return (
     <Box
@@ -126,10 +131,8 @@ function ShiftRow({ isDarkMode, shift, settings, jobs, showJob, onEdit, onDelete
             </Text>
             {jobName ? <Tag isDarkMode={isDarkMode}>{jobName}</Tag> : null}
             {shift.floor ? <Tag isDarkMode={isDarkMode} tone="accent">{shift.floor}</Tag> : null}
-            {tables.length ? (
-              <Tag isDarkMode={isDarkMode}>
-                {tables.length} {tables.length === 1 ? 'table' : 'tables'}
-              </Tag>
+            {section.length ? (
+              <Tag isDarkMode={isDarkMode}>Tables {formatSection(section)}</Tag>
             ) : null}
           </HStack>
           <Text mt={1} fontSize="13px" color={tokens.textMuted} data-numeric>
@@ -192,13 +195,13 @@ function ShiftRow({ isDarkMode, shift, settings, jobs, showJob, onEdit, onDelete
               color={ACCENTS.positive}
             />
           </SimpleGrid>
-          {tables.length ? (
+          {tablesWithTips.length ? (
             <Box mt={3}>
               <Text fontSize="11px" fontWeight={600} color={tokens.textMuted} mb={1.5}>
                 Tables
               </Text>
               <Flex gap={2} wrap="wrap">
-                {[...tables]
+                {[...tablesWithTips]
                   .sort((left, right) => right.tip - left.tip)
                   .map((entry) => (
                     <Box

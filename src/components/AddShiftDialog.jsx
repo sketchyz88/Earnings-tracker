@@ -32,7 +32,7 @@ import { formatCurrency } from '../utils/format';
 import { getPeriodEnd, getPeriodStart } from './BiWeeklyHours';
 import { parseReceiptText } from '../utils/receiptParser';
 import { palette } from '../theme/tokens';
-import TablesEditor, { rowsForSave, rowsFromShift } from './TablesEditor';
+import TablesEditor, { getRecentSections, rowsForSave, rowsFromShift } from './TablesEditor';
 
 const FLOORS = ['Floor 1', 'Floor 2'];
 
@@ -298,6 +298,8 @@ function AddShiftDialog({
       setIsDraggingReceipt(false);
     }
   }, [defaultJobId, editingShift, isOpen]);
+
+  const recentSections = useMemo(() => getRecentSections(existingShifts), [existingShifts]);
 
   const suggestedBasePay = useMemo(() => {
     const hours = Number(form.hours) || 0;
@@ -862,18 +864,12 @@ function AddShiftDialog({
             </FormControl>
 
             <FormControl>
-              <FormLabel>Tables</FormLabel>
+              <FormLabel>Your section (tables)</FormLabel>
               <TablesEditor
                 isDarkMode={isDarkMode}
                 rows={form.tables || []}
                 onChange={(nextRows) => setForm((current) => ({ ...current, tables: nextRows }))}
-                onUseTotals={({ tips, sales }) =>
-                  setForm((current) => ({
-                    ...current,
-                    tips: tips ? tips.toFixed(2) : current.tips,
-                    sales: sales ? sales.toFixed(2) : current.sales,
-                  }))
-                }
+                recentSections={recentSections}
               />
             </FormControl>
 

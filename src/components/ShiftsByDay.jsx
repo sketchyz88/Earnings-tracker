@@ -20,6 +20,7 @@ import {
   getHours,
   getNetTips,
   getSales,
+  getTables,
   getTakeHome,
   getTipOut,
   summarize,
@@ -76,6 +77,7 @@ function ShiftRow({ isDarkMode, shift, settings, jobs, showJob, onEdit, onDelete
   const timeLabel = formatShiftTime(shift);
   const jobName = showJob ? getJobName(shift.jobId, jobs) : '';
   const tipPercent = sales > 0 ? (tips / sales) * 100 : 0;
+  const tables = getTables(shift);
 
   return (
     <Box
@@ -124,6 +126,11 @@ function ShiftRow({ isDarkMode, shift, settings, jobs, showJob, onEdit, onDelete
             </Text>
             {jobName ? <Tag isDarkMode={isDarkMode}>{jobName}</Tag> : null}
             {shift.floor ? <Tag isDarkMode={isDarkMode} tone="accent">{shift.floor}</Tag> : null}
+            {tables.length ? (
+              <Tag isDarkMode={isDarkMode}>
+                {tables.length} {tables.length === 1 ? 'table' : 'tables'}
+              </Tag>
+            ) : null}
           </HStack>
           <Text mt={1} fontSize="13px" color={tokens.textMuted} data-numeric>
             {timeLabel ? (
@@ -185,6 +192,41 @@ function ShiftRow({ isDarkMode, shift, settings, jobs, showJob, onEdit, onDelete
               color={ACCENTS.positive}
             />
           </SimpleGrid>
+          {tables.length ? (
+            <Box mt={3}>
+              <Text fontSize="11px" fontWeight={600} color={tokens.textMuted} mb={1.5}>
+                Tables
+              </Text>
+              <Flex gap={2} wrap="wrap">
+                {[...tables]
+                  .sort((left, right) => right.tip - left.tip)
+                  .map((entry) => (
+                    <Box
+                      key={entry.id || entry.table}
+                      px={2.5}
+                      py={1.5}
+                      borderRadius={RADII.md}
+                      border="1px solid"
+                      borderColor={tokens.border}
+                      bg={tokens.surface}
+                    >
+                      <Text fontSize="12px" color={tokens.textMuted} lineHeight="1.3">
+                        Table {entry.table}
+                      </Text>
+                      <Text fontSize="13px" fontWeight={650} color={tokens.text} lineHeight="1.3" data-numeric>
+                        {formatCurrency(entry.tip)}
+                        {entry.sales > 0 ? (
+                          <Box as="span" fontWeight={400} color={tokens.textSubtle}>
+                            {' '}
+                            · {((entry.tip / entry.sales) * 100).toFixed(0)}%
+                          </Box>
+                        ) : null}
+                      </Text>
+                    </Box>
+                  ))}
+              </Flex>
+            </Box>
+          ) : null}
           <HStack mt={3} spacing={2}>
             <Button size="sm" variant="outline" leftIcon={<Pencil size={14} />} onClick={() => onEdit?.(shift)}>
               Edit
@@ -239,6 +281,7 @@ function ShiftsByDay({
         shift.notes,
         shift.floor,
         getJobName(shift.jobId, jobs),
+        ...getTables(shift).map((entry) => `table ${entry.table}`),
         shift.date,
         date?.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
       ]
@@ -291,7 +334,7 @@ function ShiftsByDay({
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search notes, floor, job, or day"
+              placeholder="Search notes, floor, table, or day"
               aria-label="Search shifts"
             />
           </InputGroup>

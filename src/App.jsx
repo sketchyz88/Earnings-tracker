@@ -455,6 +455,7 @@ function normalizeShiftRow(shiftRow, jobs) {
     floor: shiftRow.floor || '',
     notes: shiftRow.notes || '',
     jobId: shiftRow.job_id || getDefaultJobId(jobs),
+    tables: Array.isArray(shiftRow.tables) ? shiftRow.tables : [],
   };
 }
 
@@ -472,6 +473,7 @@ function serializeShift(shift, userId) {
     floor: shift.floor || null,
     notes: shift.notes || '',
     job_id: shift.jobId || null,
+    tables: Array.isArray(shift.tables) ? shift.tables : [],
   };
 }
 
@@ -1828,6 +1830,7 @@ function App() {
         'Base Pay',
         'Total Take Home',
         'Floor',
+        'Tables',
         'Notes',
       ],
       ...sortedShifts.map((shift) => {
@@ -1850,6 +1853,9 @@ function App() {
           basePay.toFixed(2),
           (netTips + basePay).toFixed(2),
           shift.floor || '',
+          (shift.tables || [])
+            .map((entry) => `${entry.table}: $${(Number(entry.tip) || 0).toFixed(2)} on $${(Number(entry.sales) || 0).toFixed(2)}`)
+            .join('; '),
           shift.notes || '',
         ];
       }),

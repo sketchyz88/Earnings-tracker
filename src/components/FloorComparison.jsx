@@ -6,9 +6,9 @@
  * to compare a 4-hour lunch with an 8-hour Saturday.
  */
 import { useMemo, useState } from 'react';
-import { Box, Flex, SimpleGrid, Text } from '@chakra-ui/react';
+import { Box, Button, Flex, SimpleGrid, Text } from '@chakra-ui/react';
 import { formatCurrency, formatHours } from '../utils/format';
-import { WEEKDAYS, summarize, toDate } from '../utils/shiftMath';
+import { WEEKDAYS, summarize, summarizeTables, toDate } from '../utils/shiftMath';
 import { ACCENTS, RADII, palette } from '../theme/tokens';
 import { EmptyState, Label, Panel, PanelHeader, Segmented } from './ui';
 
@@ -106,6 +106,132 @@ function Breakdown({ isDarkMode, title, subtitle, rows, emptyText }) {
   );
 }
 
+const TABLE_SORTS = [
+  { value: 'avgTip', label: 'Avg tip' },
+  { value: 'tipPercent', label: 'Tip %' },
+  { value: 'tips', label: 'Total' },
+];
+const TABLE_PAGE = 10;
+
+function TableBreakdown({ isDarkMode, rows }) {
+  const tokens = palette(isDarkMode);
+  const [sortBy, setSortBy] = useState('avgTip');
+  const [showAll, setShowAll] = useState(false);
+
+  const sorted = [...rows].sort(
+    (left, right) => right[sortBy] - left[sortBy] || right.checks - left.checks
+  );
+  const visible = showAll ? sorted : sorted.slice(0, TABLE_PAGE);
+  const maxValue = Math.max(0, ...sorted.map((row) => row[sortBy]));
+  const totalChecks = rows.reduce((sum, row) => sum + row.checks, 0);
+  const overallAvg = totalChecks ? rows.reduce((sum, row) => sum + row.tips, 0) / totalChecks : 0;
+  // Only call out a "best table" once it has enough checks to mean something.
+  const reliable = [...rows].filter((row) => row.checks >= 3).sort((a, b) => b.avgTip - a.avgTip);
+  const best = reliable[0];
+
+  function display(row) {
+    if (sortBy === 'tipPercent') return `${row.tipPercent.toFixed(1)}%`;
+    if (sortBy === 'tips') return formatCurrency(row.tips);
+    return formatCurrency(row.avgTip);
+  }
+
+  return (
+    <Panel isDarkMode={isDarkMode}>
+      <PanelHeader
+        isDarkMode={isDarkMode}
+        title="By table"
+        subtitle={
+          rows.length
+            ? `${rows.length} tables · ${totalChecks} checks · ${formatCurrency(overallAvg)} average tip per check`
+            : 'Add tables when you log a shift to see which ones tip best'
+        }
+        right={
+          rows.length ? (
+            <Segmented isDarkMode={isDarkMode} size="xs" options={TABLE_SORTS} value={sortBy} onChange={setSortBy} />
+          ) : null
+        }
+        mb={rows.length ? 2 : 4}
+      />
+
+      {!rows.length ? (
+        <EmptyState
+          isDarkMode={isDarkMode}
+          title="No tables logged in this range"
+          subtitle="Open Add shift and use the Tables section to log each table's check and tip. Your rankings show up here."
+        />
+      ) : (
+        <>
+          {best && overallAvg > 0 && best.avgTip > overallAvg ? (
+            <Text mb={2} fontSize="sm" color={tokens.textMuted} lineHeight="1.6" data-numeric>
+              <Box as="span" color={tokens.text} fontWeight={600}>
+                Table {best.table}
+              </Box>{' '}
+              averages {formatCurrency(best.avgTip)} per check, about{' '}
+              {Math.round(((best.avgTip - overallAvg) / overallAvg) * 100)}% more than your typical table.
+            </Text>
+          ) : null}
+          <SimpleGrid columns={{ base: 1, lg: 2 }} spacingX={8}>
+            {visible.map((row, index) => {
+              const width = maxValue > 0 ? Math.max(4, (row[sortBy] / maxValue) * 100) : 0;
+              const isTop = index === 0 && sorted.length > 1;
+              return (
+                <Box key={row.table} py={3} borderTop="1px solid" borderColor={tokens.border}>
+                  <Flex justify="space-between" align="baseline" gap={3}>
+                    <Box minW={0}>
+                      <Text fontSize="sm" fontWeight={650} color={tokens.text}>
+                        Table {row.table}
+                        {isTop ? (
+                          <Box
+                            as="span"
+                            ml={2}
+                            fontSize="10px"
+                            fontWeight={700}
+                            textTransform="uppercase"
+                            letterSpacing="0.06em"
+                            color={ACCENTS.positive}
+                          >
+                            Top
+                          </Box>
+                        ) : null}
+                      </Text>
+                      <Text fontSize="12px" color={tokens.textSubtle} data-numeric>
+                        {row.checks} {row.checks === 1 ? 'check' : 'checks'} · {formatCurrency(row.avgCheck)} avg check ·{' '}
+                        {row.tipPercent.toFixed(1)}% · {formatCurrency(row.tips)} total
+                      </Text>
+                    </Box>
+                    <Text fontSize="16px" fontWeight={700} color={tokens.text} flexShrink={0} data-numeric>
+                      {display(row)}
+                    </Text>
+                  </Flex>
+                  <Box mt={2} h="6px" borderRadius="full" bg={tokens.surfaceSunken} overflow="hidden">
+                    <Box
+                      h="100%"
+                      w={`${width}%`}
+                      borderRadius="full"
+                      bg={isTop ? ACCENTS.positive : ACCENTS.primary}
+                      opacity={row.checks < 3 ? 0.4 : isTop ? 1 : 0.75}
+                    />
+                  </Box>
+                </Box>
+              );
+            })}
+          </SimpleGrid>
+          <Flex mt={2} justify="space-between" align="center" gap={3} wrap="wrap">
+            <Text fontSize="12px" color={tokens.textSubtle}>
+              Faded bars have fewer than 3 checks, so treat them as early reads.
+            </Text>
+            {sorted.length > TABLE_PAGE ? (
+              <Button size="sm" variant="ghost" color={tokens.textMuted} onClick={() => setShowAll((value) => !value)}>
+                {showAll ? 'Show fewer' : `Show all ${sorted.length} tables`}
+              </Button>
+            ) : null}
+          </Flex>
+        </>
+      )}
+    </Panel>
+  );
+}
+
 function FloorComparison({ isDarkMode = true, shifts, settings }) {
   const tokens = palette(isDarkMode);
   const [range, setRange] = useState('90');
@@ -148,6 +274,8 @@ function FloorComparison({ isDarkMode = true, shifts, settings }) {
       .map(([name, bucket]) => ({ name, stats: summarize(bucket, settings) }))
       .sort((left, right) => right.stats.perHour - left.stats.perHour);
   }, [rangeShifts, settings]);
+
+  const tableRows = useMemo(() => summarizeTables(rangeShifts), [rangeShifts]);
 
   const bestDay = weekdayRows[0];
   const worstDay = weekdayRows[weekdayRows.length - 1];
@@ -229,6 +357,8 @@ function FloorComparison({ isDarkMode = true, shifts, settings }) {
           />
         </SimpleGrid>
       )}
+
+      <TableBreakdown isDarkMode={isDarkMode} rows={tableRows} />
     </Box>
   );
 }
